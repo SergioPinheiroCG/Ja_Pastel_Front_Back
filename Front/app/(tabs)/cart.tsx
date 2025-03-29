@@ -36,89 +36,41 @@ const Cart = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-/*const fetchUserData = async () => {
-  try {
-    const token = await AsyncStorage.getItem('authToken');
-    const userId = await AsyncStorage.getItem('userId');
+    const fetchUserData = async () => {
+      try {
+        const token = await AsyncStorage.getItem("authToken");
+        const userId = await AsyncStorage.getItem("userId");
 
-    console.log("🚀 Token:", token);
-    console.log("🚀 UserID:", userId);
+        console.log("🚀 Token:", token);
+        console.log("🚀 UserID:", userId);
 
-    if (!token || !userId) {
-      throw new Error('Token ou ID do usuário não encontrado');
-    }
+        if (!token) {
+          throw new Error("Token não encontrado");
+        }
 
-    // Tente ambas as rotas possíveis
-    let response;
-    try {
-      response = await request('/api/me', 'GET', null, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch (firstError) {
-      console.log("Tentando rota alternativa...");
-      response = await request('/me', 'GET', null, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    }
+        const response = await request("/api/me", "GET", null, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-    console.log("🚀 Resposta completa:", response);
-    
-    if (!response.user) {
-      throw new Error('Dados do usuário não encontrados na resposta');
-    }
+        console.log("🚀 Resposta completa:", response);
 
-    setUserName(response.user.nome || response.user.email || 'Cliente');
-  } catch (error) {
-    console.error('Erro detalhado:', {
-      message: error.message,
-      stack: error.stack,
-      response: error.response
-    });
-    Alert.alert('Erro', 'Não foi possível carregar os dados do usuário');
-  }
-};
- 
+        if (!response?.user) {
+          throw new Error("Dados do usuário não encontrados");
+        }
+
+        setUserName(response.user.nome || response.user.email || "Cliente");
+      } catch (error) {
+        console.error("Erro detalhado:", {
+          message: error.message,
+          stack: error.stack,
+          response: error.response,
+        });
+        Alert.alert("Erro", "Não foi possível carregar os dados do usuário");
+      }
+    };
+
     fetchUserData();
-  }, []);*/
-
-  const fetchUserData = async () => {
-    try {
-      const token = await AsyncStorage.getItem('authToken');
-      const userId = await AsyncStorage.getItem('userId');
-
-      console.log("🚀 Token:", token);
-      console.log("🚀 UserID:", userId);
-
-
-      if (!token) {
-        throw new Error('Token não encontrado');
-      }
-  
-      const response = await request('/api/me', 'GET', null, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      console.log("🚀 Resposta completa:", response);
-
-      if (!response?.user) {
-        throw new Error('Dados do usuário não encontrados');
-      }
-  
-  setUserName(response.user.nome || response.user.email || 'Cliente');
-  } catch (error) {
-    console.error('Erro detalhado:', {
-      message: error.message,
-      stack: error.stack,
-      response: error.response
-    });
-    Alert.alert('Erro', 'Não foi possível carregar os dados do usuário');
-  }
-  };
-
-  fetchUserData();
-}, []);
-
-
+  }, []);
 
   const renderPaymentOption = (paymentMethod: string) => {
     const isSelected = selectedPaymentMethod === paymentMethod;
@@ -159,40 +111,42 @@ const Cart = () => {
 
   const finalizarPedido = async () => {
     if (cartItems.length === 0) {
-      Alert.alert("Carrinho vazio", "Adicione itens ao carrinho antes de finalizar o pedido.");
+      Alert.alert(
+        "Carrinho vazio",
+        "Adicione itens ao carrinho antes de finalizar o pedido."
+      );
       return;
     }
-  
+
     if (selectedPaymentMethod === "Cartão de Crédito") {
       if (!cardNumber || !securityCode || !expiryDate) {
-        Alert.alert("Erro", "Por favor, preencha todos os campos do cartão de crédito.");
+        Alert.alert(
+          "Erro",
+          "Por favor, preencha todos os campos do cartão de crédito."
+        );
         return;
       }
     }
-  
+
     setIsSubmitting(true);
-  
+
     try {
       // 1. Obter credenciais do usuário
       const [token, userId] = await Promise.all([
-        AsyncStorage.getItem('authToken'),
-        AsyncStorage.getItem('userId')
+        AsyncStorage.getItem("authToken"),
+        AsyncStorage.getItem("userId"),
       ]);
-  
+
       console.log("Token:", token?.substring(0, 10) + "..."); // Log parcial do token por segurança
       console.log("UserID:", userId);
-  
+
       if (!token || !userId) {
         throw new Error("Usuário não autenticado. Faça login novamente.");
       }
-  
+
       // 2. Preparar dados do pedido
       const pedidoData = {
-        produtos: cartItems.map(item => ({
-          produtoId: item.id,
-          quantidade: item.quantidade,
-          precoUnitario: item.preco
-        })),
+        produtos: cartItems.map((item) => item.id), // Apenas os IDs dos produtos
         formaPagamento: selectedPaymentMethod,
         valorTotal: getTotal(),
         usuario: userId,
@@ -200,28 +154,29 @@ const Cart = () => {
           cartao: {
             numero: cardNumber,
             codigoSeguranca: securityCode,
-            dataValidade: expiryDate
-          }
-        })
+            dataValidade: expiryDate,
+          },
+        }),
       };
-  
+
       console.log("Dados do pedido:", JSON.stringify(pedidoData, null, 2));
-  
+
       // 3. Enviar pedido para o backend
-      const response = await request('/api/pedidos', 'POST', pedidoData, {
+      const response = await request("/api/pedidos", "POST", pedidoData, {
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
+          "Content-Type": "application/json",
+        },
       });
-  
+
       if (!response || response.error) {
         throw new Error(response?.error || "Erro ao processar pedido");
       }
-  
+
       // 4. Processar resposta
-      const numeroPedido = response._id || Math.floor(1000 + Math.random() * 9000);
-      
+      const numeroPedido =
+        response._id || Math.floor(1000 + Math.random() * 9000);
+
       Alert.alert(
         "Pedido Finalizado!",
         `Seu pedido foi confirmado com o número: #${numeroPedido}`,
@@ -230,38 +185,37 @@ const Cart = () => {
             text: "OK",
             onPress: () => {
               clearCart();
-              router.push("/pedidos");
+              router.push("/pedido"); // Navegar para a tela de pedidos
             },
           },
         ]
       );
-  
+
       // 5. Limpar dados sensíveis do cartão
       if (selectedPaymentMethod === "Cartão de Crédito") {
         setCardNumber("");
         setSecurityCode("");
         setExpiryDate("");
       }
-  
     } catch (error) {
       console.error("Erro detalhado:", {
         message: error.message,
         stack: error.stack,
         credentials: {
-          token: await AsyncStorage.getItem('authToken'),
-          userId: await AsyncStorage.getItem('userId')
-        }
+          token: await AsyncStorage.getItem("authToken"),
+          userId: await AsyncStorage.getItem("userId"),
+        },
       });
-  
+
       Alert.alert(
         "Erro",
-        error.message || "Ocorreu um erro ao finalizar o pedido. Por favor, tente novamente."
+        error.message ||
+          "Ocorreu um erro ao finalizar o pedido. Por favor, tente novamente."
       );
     } finally {
       setIsSubmitting(false);
     }
   };
-
 
   const handleRemoveItem = (id: string) => {
     Alert.alert("Remover item", "Tem certeza que deseja remover este item?", [
