@@ -76,6 +76,7 @@ const Login = () => {
       await AsyncStorage.multiSet([
         ['authToken', response.token],
         ['userId', response.user.id]
+        
       ]);
 
       // Verificação adicional

@@ -46,9 +46,13 @@ const styles = StyleSheet.create({
     width: "100%",
     backgroundColor: "#FFF",
   },
+
   menuItemContainer: {
+    alignItems: "center", // Centraliza os itens na vertical
+    justifyContent: "center", // Garante que tudo fique centralizado
     padding: 10,
   },
+  
 });
 
 export default styles;

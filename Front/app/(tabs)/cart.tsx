@@ -14,6 +14,7 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import styles from "./styles/cart.styles";
 import { request } from "../../services/api";
+import chat from "../chat";
 
 interface CartItem {
   id: string;
@@ -58,7 +59,8 @@ const Cart = () => {
           throw new Error("Dados do usuário não encontrados");
         }
 
-        setUserName(response.user.nome || response.user.email || "Cliente");
+        setUserName(response.user.nome ||  "Cliente");
+        console.log("🚀 Nome do usuário:", response.user.nome);
       } catch (error) {
         console.error("Erro detalhado:", {
           message: error.message,

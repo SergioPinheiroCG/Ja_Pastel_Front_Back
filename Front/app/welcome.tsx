@@ -30,9 +30,7 @@ const Welcome = () => {
         SEJA BEM-VINDO{"\n\n"}À FRANQUIA QUE MAIS{"\n"}CRESCE NO{"\n"}BRASIL
       </Text>
 
-      <TouchableOpacity style={styles.arrowButton} onPress={handleIniciar}>
-        <MaterialIcons name="arrow-forward" size={60} color="red" />{" "}
-      </TouchableOpacity>
+      <TouchableOpacity style={styles.arrowButton} onPress={handleIniciar}><MaterialIcons name="arrow-forward" size={60} color="red" /></TouchableOpacity>
     </LinearGradient>
   );
 };

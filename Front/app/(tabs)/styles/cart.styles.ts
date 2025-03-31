@@ -130,6 +130,10 @@ const styles = StyleSheet.create({
   },
   finalizarButton: {
   position: 'absolute',
+  width: '90%',
+  alignSelf: 'center',
+  // Antes estava 20, agora sobe acima do footer
+  // bottom: 20,  
   bottom: 70, // Antes estava 20, agora sobe acima do footer
   left: 20,
   right: 20,

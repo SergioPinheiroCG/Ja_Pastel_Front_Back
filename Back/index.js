@@ -28,7 +28,7 @@ app.use("/api", pedidoRouter); // Utilizando o router de pedido ;
 app.use("/api", cartRouter);
 
 // SERVIDOR ; 
-const ipAddress = '192.168.0.4'; // Atribuindo a variável o endereço IP do servidor ;
+const ipAddress = '192.168.0.5'; // Atribuindo a variável o endereço IP do servidor ;
 const port = 5000; // Atribuindo a variável a porta no qual será rodado o servidor ;
 app.listen(port, ipAddress, () => { // Iniciando o servidor ; 
     console.log(`Servidor rodando em http://${ipAddress}:${port}`);

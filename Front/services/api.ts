@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.0.4:5000";
+const API_URL = "http://192.168.0.5:5000";
 
 const request = async (
   endpoint: string,
@@ -49,6 +49,12 @@ const request = async (
         response: data
       };
       console.error("Erro detalhado:", errorDetails);
+
+      // Tratamento específico para erros de login/credenciais inválidas
+      if (response.status === 401) {
+        throw new Error("Email ou senha inválidos");
+      }
+
       throw new Error(data.message || data.error || `Erro HTTP ${response.status}`);
     }
 
@@ -60,14 +66,18 @@ const request = async (
       method,
       time: new Date().toISOString()
     });
-    
+
     // Mensagens mais amigáveis para o usuário
-    const userMessage = error.message.includes('Endpoint não encontrado')
-      ? "Rota não encontrada no servidor"
-      : error.message.includes('JSON Parse error')
-      ? "Resposta inválida do servidor"
-      : "Erro de conexão com o servidor";
-    
+    let userMessage = "Erro de conexão com o servidor";
+
+    if (error.message.includes('Endpoint não encontrado')) {
+      userMessage = "Rota não encontrada no servidor";
+    } else if (error.message.includes('JSON Parse error')) {
+      userMessage = "Resposta inválida do servidor";
+    } else if (error.message.includes("Email ou senha inválidos")) {
+      userMessage = "Email ou senha inválidos";
+    }
+
     throw new Error(userMessage);
   }
 };
