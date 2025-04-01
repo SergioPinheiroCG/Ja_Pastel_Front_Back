@@ -22,9 +22,15 @@ class Message{
 
 const Chat = () => {
   const router = useRouter();
-  const [userLogged, setUserLogged] = useState({ name: "Sergio" });
+  const [userLogged, setUserLogged] = useState('Sérgio');
   const [chat, setChat] = useState<{messages: Message []}>({messages: []});
   const [message, setMessage] = useState('');
+  
+  const sendMessage = () => {
+    chat.messages.push ({text:message, sentBy: userLogged})
+    setChat({messages: [...chat.messages]})
+    setMessage('')
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -59,6 +65,7 @@ const Chat = () => {
         )}
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
+        
       />
       
       {/* Área de input */}
@@ -68,9 +75,10 @@ const Chat = () => {
           placeholder="Digite sua mensagem"
           placeholderTextColor="#666"
           value={message}
-          onChangeText={setMessage}
+          onChangeText={(message)=>setMessage (message)}
         />
         <TouchableOpacity
+          onPress={() => sendMessage()}
           style={styles.sendButton}
           disabled={!message}
         >
@@ -82,28 +90,31 @@ const Chat = () => {
 };
 
 const Balloon = ({ message, currentUser }: any) => {
-  const sent = currentUser.name === message?.sentBy;
+  const sent = currentUser === message.sentBy;
   
   return (
     <View style={[
-      styles.bubbleWrapper, 
+      styles.bubbleWrapper,
       sent ? styles.bubbleWrapperSent : styles.bubbleWrapperReceived
     ]}>
       <View style={[
-        styles.balloon, 
+        styles.balloon,
         sent ? styles.balloonSent : styles.balloonReceived
       ]}>
+        {/* Nome do usuário (parte superior) */}
+        <Text style={sent ? styles.userNameSent : styles.userNameReceived}>
+          {message.sentBy}
+        </Text>
+        
+        {/* Mensagem (parte inferior) */}
         <Text style={sent ? styles.balloonTextSent : styles.balloonTextReceived}>
-          {message?.content}
+          {message.text}
         </Text>
-        <Text style={sent ? styles.timeTextSent : styles.timeTextReceived}>
-          10:30
-        </Text>
-      </View>
+       </View>
     </View>
   );
 };
-
+  
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -201,14 +212,31 @@ const styles = StyleSheet.create({
   bubbleWrapperReceived: {
     alignSelf: 'flex-start',
   },
+
+  // Estilos para o nome do usuário
+  userNameSent: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+  },
+  userNameReceived: {
+    color: '#333',
+    fontWeight: 'bold',
+    fontSize: 14,
+    marginBottom: 4,
+    alignSelf: 'flex-start',
+  },
+  
+  // Ajuste no balão para melhor organização
   balloon: {
     padding: 10,
     borderRadius: 8,
     maxWidth: '80%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
+    flexDirection: 'column', // Mudamos para column para empilhar verticalmente
   },
+  //Ajustes nos Balloons
   balloonSent: {
     backgroundColor: '#FFD700', // Dourado da sua paleta
     borderBottomRightRadius: 0,
@@ -217,25 +245,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#F0F0F0', // Cinza claro da sua paleta
     borderBottomLeftRadius: 0,
   },
-  balloonText: {
-    fontSize: 16,
-    flexShrink: 1,
-  },
+
+  // Ajuste nos textos para melhor espaçamento
   balloonTextSent: {
-    color: '#333', // Texto escuro
+    color: '#333',
+    fontSize: 16,
+    marginBottom: 4,
   },
   balloonTextReceived: {
-    color: '#333', // Texto escuro
+    color: '#333',
+    fontSize: 16,
+    marginBottom: 4,
   },
+  
+  // Ajuste no tempo para alinhar à direita
   timeTextSent: {
-    color: '#666', // Cinza médio
-    fontSize: 12,
-    marginLeft: 8,
+    color: '#666',
+    fontSize: 10,
+    alignSelf: 'flex-end',
   },
   timeTextReceived: {
-    color: '#666', // Cinza médio
-    fontSize: 12,
-    marginLeft: 8,
+    color: '#666',
+    fontSize: 10,
+    alignSelf: 'flex-end',
   },
 });
 
