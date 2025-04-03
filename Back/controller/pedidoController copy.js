@@ -1,119 +1,276 @@
-const Pedido = require("../model/Pedido"); // Importando o model de "pedidos" ; 
-const Produto = require("../model/Produto"); // Importando o model de "produto" ; 
-const User = require("../model/User"); // Importando o model de "usuário" ; 
-const mongoose = require("mongoose"); // Importando o "mongoose" ; 
+const Pedido = require("../model/Pedido");
+const Produto = require("../model/Produto");
+const mongoose = require("mongoose");
 
-const getPedidos = async (req, res) => { // Função responsável por selecionar todos os pedidos cadastrados no banco de dados ; 
-    try {
-        const idUser = await recuperarIdUser(req); // Recuperando o ID do usuário cadastrado na requisição ; 
-        const pedidos = await Pedido.find({usuario: idUser}).populate("produtos").populate("usuario"); // Selecionando todos os pedidos cadastrados no banco de dados vinculados ao usuário logado no Sistema; 
-        return res.status(200).json(pedidos); // Retornando todos os pedidos cadastrados no banco de dados ; 
+// Função auxiliar para obter preço do produto
+async function getPrecoProduto(produtoId) {
+  try {
+    const produto = await Produto.findById(produtoId);
+    if (!produto) {
+      console.warn(`Produto não encontrado: ${produtoId}`);
+      return 0;
     }
-    catch (error) {
-        console.log(error);
-        res.status(500).json({message: "Erro interno ao selecionar pedidos cadastrados no banco de dados!"}); // Atribuindo a mensagem de erro ; 
-    }
+    return produto.valor || 0;
+  } catch (error) {
+    console.error(`Erro ao buscar preço do produto ${produtoId}:`, error);
+    return 0;
+  }
 }
 
-const addPedido = async (req, res) => { // Função responsável por adicionar um pedido no banco de dados ; 
-    try {
-        const { produtos } = req.body; // Recuperando o ID dos produtos a serem adicionados ao pedido ; 
-        const idUser = await recuperarIdUser(req); // Recuperando o ID do usuário que está logado no sistema ; 
+const addPedido = async (req, res) => {
+  try {
+    const { produtos, formaPagamento, valorTotal } = req.body;
+    const idUser = req.user.id;
 
-        if (!produtos || !Array.isArray(produtos)) {return res.status(400).json({ message: "Erro ao adicionar pedido no banco de dados!"})} // Atribuindo a mensagem de erro ; 
-        if (produtos.length === 0) { return res.status(400).json({ message: "Erro ao adicionar pedido no banco de dados! O pedido precisa de ao menos um produto para ser cadastrado!" })} // Atribuindo a mensagem de erro ; 
-
-        const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id)); // Filtrando os produtos em que os ID são objetos válidos ; 
-        if (produtosValidos.length !== produtos.length) {return res.status(400).json({ message: "Erro ao adicionar pedido no banco de dados! Um ou mais ID de produtos são inválidos!" })} // Atribuindo a mensagem de erro ; 
-
-        const produtosEncontrados = await Produto.find({ _id: { $in: produtosValidos } }); // Fazendo a busca de produtos no banco de dados ; 
-        if (produtosEncontrados.length === 0) {return res.status(400).json({ message: "Erro ao adicionar pedido no banco de dados! Nenhum produto válido foi encontrado!" })} // Atribuindo a mensaegm de erro ; 
-
-        let valorTotal = produtosEncontrados.reduce((total, produto) => { // Calculando o valor total do pedido ; 
-            return total + Number(produto.valor) || 0
-        }, 0);
-
-        const novoPedido = await Pedido.create({produtos: produtosValidos, usuario: idUser, valor: valorTotal}); // Criando o pedido no banco de dados; 
-
-
-        if (novoPedido) { // Se o pedido for criado com sucesso ; 
-            await User.findByIdAndUpdate(idUser, { $push: { pedidos: novoPedido._id } }); // Associando o pedido ao usuário correspondente ; 
-            return res.status(201).json(novoPedido); // Atribuindo a mensagem de sucesso ;  
-        } else {
-            return res.status(400).json({ message: "Erro ao adicionar pedido no banco de dados" }); // Atribuindo a mensagem de erro ; 
-        }
-    } catch (error) {
-        res.status(500).json({ message: "Erro interno ao adicionar pedido no banco de dados!"}); // Atribuindo a mensagem de erro ; 
+    // Validação dos dados de entrada
+    if (!produtos || !Array.isArray(produtos)) {
+      return res.status(400).json({ 
+        success: false,
+        error: "Lista de produtos inválida ou não fornecida" 
+      });
     }
+
+    if (!formaPagamento || !["Dinheiro", "Pix", "Cartão de Crédito", "Cartão de Débito"].includes(formaPagamento)) {
+      return res.status(400).json({
+        success: false,
+        error: "Forma de pagamento inválida"
+      });
+    }
+
+    if (!valorTotal || isNaN(valorTotal) || valorTotal <= 0) {
+      return res.status(400).json({
+        success: false,
+        error: "Valor total inválido"
+      });
+    }
+
+    // Verificar IDs dos produtos
+    const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id));
+    if (produtosValidos.length !== produtos.length) {
+      return res.status(400).json({
+        success: false,
+        error: "Contém IDs de produtos inválidos"
+      });
+    }
+
+    // Converter array de IDs para o formato do schema
+    const itensPedido = await Promise.all(
+      produtosValidos.map(async (produtoId) => {
+        const preco = await getPrecoProduto(produtoId);
+        return {
+          produto: produtoId,
+          quantidade: 1, // Você pode ajustar isso conforme sua lógica
+          precoUnitario: preco
+        };
+      })
+    );
+
+    // Calcular valor total real para verificação
+    const totalCalculado = itensPedido.reduce(
+      (total, item) => total + (item.precoUnitario * item.quantidade),
+      0
+    );
+
+    // Verificar discrepância maior que 10%
+    if (Math.abs(totalCalculado - valorTotal) / totalCalculado > 0.1) {
+      console.warn(`Diferença significativa no valor total. Enviado: ${valorTotal}, Calculado: ${totalCalculado}`);
+    }
+
+    // Criar o pedido
+    const novoPedido = await Pedido.create({
+      usuario: idUser,
+      produtos: itensPedido,
+      formaPagamento,
+      valorTotal: totalCalculado, // Usar o valor calculado ou o valorTotal, conforme sua regra de negócio
+      status: "pendente",
+      dataPedido: new Date()
+    });
+
+    // Popular os dados do produto para a resposta
+    const pedidoCompleto = await Pedido.findById(novoPedido._id)
+      .populate("produtos.produto")
+      .populate("usuario", "-senha"); // Exclui a senha do usuário
+
+    res.status(201).json({
+      success: true,
+      pedido: pedidoCompleto,
+      message: "Pedido criado com sucesso"
+    });
+
+  } catch (error) {
+    console.error("Erro ao criar pedido:", {
+      error: error.message,
+      body: req.body,
+      user: req.user.id,
+      time: new Date().toISOString()
+    });
+    
+    res.status(500).json({ 
+      success: false,
+      error: "Erro interno ao processar pedido",
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined
+    });
+  }
 };
 
-const deletePedido = async (req, res) => { // Função responsável por deletar um pedido no banco de dados ; 
-    try {
-        const {id} = req.params; // Recuperando o ID do pedido a ser removido ; 
-        
-        if(!id || !mongoose.Types.ObjectId.isValid(id)) {return res.status(400).json({message: "Erro ao deletar pedido! O ID informado é inválido!"})}; // Atribuindo a mensagem de erro ; 
+// Outras funções do controller (mantidas do seu código original)
+const getPedidos = async (req, res) => {
+  try {
+    const idUser = req.user.id;
+    const pedidos = await Pedido.find({ usuario: idUser })
+      .populate("produtos.produto")
+      .populate("usuario", "-senha")
+      .sort({ dataPedido: -1 }); // Mais recentes primeiro
 
-        const pedidoDeletado = await Pedido.findByIdAndDelete(id); // Procurando e deletando o pedido no banco de dados ; 
-        
-        if(pedidoDeletado) { // Se o pedido foi deletado com sucesso ;
-            const idUser = await recuperarIdUser(req); // Recuperando o ID do usuário e atribuindo a variável ; 
-            await User.findByIdAndUpdate(idUser, {$pull: {pedidos: pedidoDeletado._id}}) // Removendo o pedido do array de pedidos do usuário ; 
-            return res.status(200).json({message: "Pedido deletado com sucesso!"}); // Atribuindo a mensagem de sucesso ; 
-        }
-        else { // Caso não tenha sido deletado ; 
-            return res.status(400).json({message: "Erro ao deletar pedido! Não foi encontrado nenhum pedido com o ID informado!"}); // Atribuindo a mensagem de erro ; 
-        }
-    }
-    catch(error) {
-        res.status(500).json({message: "Erro interno ao deletar pedido no banco de dados!"}); // Atribuindo a mensagem de erro ; 
-    }
-}
+    return res.status(200).json({
+      success: true,
+      data: pedidos
+    });
+  } catch (error) {
+    console.error("Erro ao buscar pedidos:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erro ao buscar pedidos"
+    });
+  }
+};
 
-const putPedido = async (req, res) => { // Função responsável por atualizar um pedido no banco de dados ; 
-    try {
-        const {id} = req.params; // Recuperando o ID do pedido a ser atualizado ; 
-        const {produtos} = req.body; // Recuperando o ID dos produtos a serem atualizados no pedido ; 
-
-        if(!id || !mongoose.Types.ObjectId.isValid(id)) {return res.status(400).json({message: "Erro ao atualizar pedido! O ID informado é inválido!"})}; // Atribuindo a mensagem de erro ; 
+const deletePedido = async (req, res) => {
+  try {
+    const { id } = req.params;
     
-        if (!produtos || !Array.isArray(produtos)) {return res.status(400).json({ message: "Erro ao atualizar pedido no banco de dados!" })} // Atribuindo a mensagem de erro ; 
-        if (produtos.length === 0) { return res.status(400).json({ message: "Erro ao atualizar pedido no banco de dados! O pedido precisa de ao menos um produto para ser atualizado!" })} // Atribuindo a mensagem de erro ; 
-
-        const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id)); // Filtrando os produtos em que os ID são objetos válidos ; 
-        if (produtosValidos.length !== produtos.length) {return res.status(400).json({ message: "Erro ao atualizar pedido no banco de dados! Um ou mais ID de produtos são inválidos!" })} // Atribuindo a mensagem de erro ; 
-
-        const produtosEncontrados = await Produto.find({ _id: { $in: produtosValidos } }); // Fazendo a busca de produtos no banco de dados ; 
-        if (produtosEncontrados.length === 0) {return res.status(400).json({ message: "Erro ao atualizar pedido no banco de dados! Nenhum produto válido foi encontrado!" })} // Atribuindo a mensaegm de erro ; 
-
-        let valorTotal = produtosEncontrados.reduce((total, produto) => { // Calculando o valor total do pedido ; 
-            return total + Number(produto.valor) || 0
-        }, 0);
-
-        const pedidoAtualizado = await Pedido.findByIdAndUpdate(id, {produtos: produtosValidos, valor: valorTotal}); // Atualizando o pedido no banco de dados ; 
-
-        if(pedidoAtualizado) { // Caso o pedido tenha sido atualizado com sucesso ; 
-            return res.status(200).json({message: "Pedido atualizado com sucesso!"}); // Atribuindo a mensagem de sucesso ; 
-        }
-        else { // Caso não tenha sido atualizado ; 
-            return res.status(400).json({message: "Erro ao atualizar pedido no banco de dados!"}); // Atribuindo a mensagem de erro ; 
-        }  
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "ID do pedido inválido"
+      });
     }
-    catch(error) {
-        res.status(500).json({message: "Erro interno ao atualizar pedido no banco de dados!"}); // Atribuindo a mensagem de erro ; 
-    }
-}
 
-// FUNÇÕES AUXILIARES ; 
+    const pedido = await Pedido.findOneAndDelete({
+      _id: id,
+      usuario: req.user.id // Garante que só o dono pode deletar
+    });
 
-const recuperarIdUser = async (req) => { // Função responsável por recuperar o ID do usuário que está cadastrado na requisição ; 
-    try {
-        const email = req.email; // Recuperando o email do usuário que está cadastrado ; 
-        const user = await User.findOne({email}); // Selecionando o usuário que está cadastrado com o email informado ; 
-        return user.id; // Retornando o ID do usuário ; 
+    if (!pedido) {
+      return res.status(404).json({
+        success: false,
+        error: "Pedido não encontrado ou não pertence ao usuário"
+      });
     }
-    catch (error) {
-        res.status(500).json({message: "Erro interno!"}); // Atribuindo a mensagem de erro ; 
-    }
-}
 
-module.exports = {getPedidos, addPedido, deletePedido, putPedido}; // Exportando as  funções para serem utilizadas no router ; 
+    res.status(200).json({
+      success: true,
+      message: "Pedido deletado com sucesso"
+    });
+
+  } catch (error) {
+    console.error("Erro ao deletar pedido:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erro ao deletar pedido"
+    });
+  }
+};
+
+const putPedido = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { produtos, status } = req.body;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        success: false,
+        error: "ID do pedido inválido"
+      });
+    }
+
+    // Apenas atualiza o status se fornecido e válido
+    const updateData = {};
+    if (status && ["pendente", "preparando", "pronto", "entregue", "cancelado"].includes(status)) {
+      updateData.status = status;
+    }
+
+    // Se produtos foram fornecidos
+    if (produtos && Array.isArray(produtos)) {
+      const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id));
+      
+      if (produtosValidos.length !== produtos.length) {
+        return res.status(400).json({
+          success: false,
+          error: "Contém IDs de produtos inválidos"
+        });
+      }
+
+      const itensPedido = await Promise.all(
+        produtosValidos.map(async (produtoId) => {
+          const preco = await getPrecoProduto(produtoId);
+          return {
+            produto: produtoId,
+            quantidade: 1,
+            precoUnitario: preco
+          };
+        })
+      );
+
+      updateData.produtos = itensPedido;
+      updateData.valorTotal = itensPedido.reduce(
+        (total, item) => total + (item.precoUnitario * item.quantidade),
+        0
+      );
+    }
+
+    const pedidoAtualizado = await Pedido.findOneAndUpdate(
+      {
+        _id: id,
+        usuario: req.user.id // Garante que só o dono pode atualizar
+      },
+      updateData,
+      { new: true, runValidators: true }
+    )
+    .populate("produtos.produto")
+    .populate("usuario", "-senha");
+
+    if (!pedidoAtualizado) {
+      return res.status(404).json({
+        success: false,
+        error: "Pedido não encontrado ou não pertence ao usuário"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: pedidoAtualizado,
+      message: "Pedido atualizado com sucesso"
+    });
+
+  } catch (error) {
+    console.error("Erro ao atualizar pedido:", error);
+    res.status(500).json({
+      success: false,
+      error: "Erro ao atualizar pedido"
+    });
+  }
+};
+
+const fs = require('fs');
+const path = require('path');
+
+// Caminho onde será salvo (ajuste conforme necessário)
+const pedidosPath = path.join(__dirname, 'pedidos.txt');
+
+// Função para salvar
+const savePedidoToFile = (pedido) => {
+  const data = `${new Date().toISOString()} - ${JSON.stringify(pedido)}\n`;
+  fs.appendFile(pedidosPath, data, (err) => {
+    if (err) console.error('Erro ao salvar pedido:', err);
+    else console.log('Pedido salvo em', pedidosPath);
+  });
+};
+
+
+module.exports = {
+  getPedidos,
+  addPedido,
+  deletePedido,
+  putPedido
+};

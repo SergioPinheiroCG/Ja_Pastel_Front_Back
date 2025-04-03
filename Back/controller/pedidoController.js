@@ -252,6 +252,22 @@ const putPedido = async (req, res) => {
   }
 };
 
+const fs = require('fs');
+const path = require('path');
+
+// Caminho onde será salvo (ajuste conforme necessário)
+const pedidosPath = path.join(__dirname, 'pedidos.txt');
+
+// Função para salvar
+const savePedidoToFile = (pedido) => {
+  const data = `${new Date().toISOString()} - ${JSON.stringify(pedido)}\n`;
+  fs.appendFile(pedidosPath, data, (err) => {
+    if (err) console.error('Erro ao salvar pedido:', err);
+    else console.log('Pedido salvo em', pedidosPath);
+  });
+};
+
+
 module.exports = {
   getPedidos,
   addPedido,

@@ -35,7 +35,7 @@ const PedidoSchema = new mongoose.Schema({
   observacoes: String,
   status: {
     type: String,
-    default: "pendente",
+    default: "pronto",
     enum: ["pendente", "preparando", "pronto", "entregue", "cancelado"],
   },
   dataPedido: {
