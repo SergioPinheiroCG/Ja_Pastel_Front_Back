@@ -40,7 +40,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: "#DDD",
-    padding: 10,
+    padding: 1,
     position: "absolute",
     bottom: 0,
     width: "100%",

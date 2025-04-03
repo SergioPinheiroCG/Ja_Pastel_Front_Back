@@ -1,4 +1,4 @@
-const API_URL = "http://192.168.0.5:5000";
+const API_URL = "http://192.168.0.7:5000";
 
 const request = async (
   endpoint: string,
@@ -85,7 +85,18 @@ const request = async (
 /**
  * Autenticação
  */
-const login = async (email: string, senha: string) => {
+interface UserData {
+  id: string;
+  email: string;
+  nome?: string; // Opcional se nem sempre vier
+}
+
+interface LoginResponse {
+  token: string;
+  user: UserData;
+}
+
+const login = async (email: string, senha: string): Promise<LoginResponse> => {
   return await request('/login', 'POST', { email, senha });
 };
 

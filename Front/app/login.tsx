@@ -6,112 +6,133 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
-  ActivityIndicator
+  ActivityIndicator,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import { FontAwesome, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import styles from "./styles/login.styles";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { login } from "../services/api";
+import styles from "./styles/login.styles";
+
+interface User {
+  id: string;
+  email: string;
+  nome: string;
+}
+
+interface LoginResponse {
+  token: string;
+  user: User;
+}
 
 const Login = () => {
   const router = useRouter();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [formState, setFormState] = useState({
+    email: "",
+    password: "",
+    emailError: "",
+    passwordError: "",
+    isLoading: false,
+  });
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+  const updateFormState = (updates: Partial<typeof formState>) => {
+    setFormState(prev => ({ ...prev, ...updates }));
+  };
+
   const validateEmail = (text: string) => {
-    setEmail(text);
-    setEmailError(
-      !text
+    updateFormState({
+      email: text,
+      emailError: !text
         ? "E-mail é obrigatório"
         : !emailRegex.test(text)
         ? "E-mail inválido"
-        : ""
-    );
+        : "",
+    });
   };
 
   const validatePassword = (text: string) => {
-    setPassword(text);
-    setPasswordError(!text ? "Senha é obrigatória" : "");
+    updateFormState({
+      password: text,
+      passwordError: !text ? "Senha é obrigatória" : "",
+    });
   };
 
   const validateForm = () => {
     let isValid = true;
-    
-    if (!email || !emailRegex.test(email)) {
-      setEmailError("E-mail inválido");
+    const errors = {
+      emailError: "",
+      passwordError: "",
+    };
+
+    if (!formState.email || !emailRegex.test(formState.email)) {
+      errors.emailError = "E-mail inválido";
       isValid = false;
     }
-    
-    if (!password) {
-      setPasswordError("Senha é obrigatória");
+
+    if (!formState.password) {
+      errors.passwordError = "Senha é obrigatória";
       isValid = false;
     }
-    
+
+    updateFormState(errors);
     return isValid;
   };
 
-  const handleEntrar = async () => {
+  const handleLogin = async () => {
     if (!validateForm()) {
       Alert.alert("Erro", "Por favor, corrija os campos destacados");
       return;
     }
 
-    setIsLoading(true);
+    updateFormState({ isLoading: true });
 
     try {
-      const response = await login(email, password);
+      const response = await login(formState.email, formState.password) as LoginResponse;
       
       if (!response?.token || !response?.user?.id) {
         throw new Error("Dados de login incompletos");
       }
 
-      // Armazena ambos token e userId
-      await AsyncStorage.multiSet([
-        ['authToken', response.token],
-        ['userId', response.user.id]
-        
-      ]);
-
-      // Verificação adicional
-      const [storedToken, storedUserId] = await AsyncStorage.multiGet(['authToken', 'userId']);
-      
-      if (!storedToken[1] || !storedUserId[1]) {
-        throw new Error("Falha ao armazenar credenciais");
+      if (!response.user.nome) {
+        throw new Error("Nome do usuário não retornado");
       }
 
-      console.log("Login bem-sucedido:", {
-        token: storedToken[1]?.substring(0, 10) + "...",
-        userId: storedUserId[1]
+      // Armazena todos os dados do usuário
+      await AsyncStorage.multiSet([
+        ['authToken', response.token],
+        ['userId', response.user.id],
+        ['userName', response.user.nome],
+        ['userEmail', response.user.email],
+      ]);
+
+      console.log('Dados do usuário armazenados:', {
+        token: response.token.substring(0, 10) + '...',
+        userId: response.user.id,
+        userName: response.user.nome,
       });
 
       router.replace("/(tabs)/home");
-
     } catch (error) {
       console.error("Erro no login:", {
         error,
-        email,
-        time: new Date().toISOString()
+        email: formState.email,
+        time: new Date().toISOString(),
       });
 
-      Alert.alert(
-        "Erro",
-        typeof error === 'string' 
-          ? error 
-          : error.message || "Falha ao fazer login. Verifique suas credenciais."
-      );
+      const errorMessage = typeof error === "string" 
+        ? error 
+        : error.message || "Falha ao fazer login. Verifique suas credenciais.";
+      
+      Alert.alert("Erro", errorMessage);
     } finally {
-      setIsLoading(false);
+      updateFormState({ isLoading: false });
     }
   };
 
-  const handleRegister = () => {
+  const navigateToRegister = () => {
     router.push("/register");
   };
 
@@ -138,18 +159,18 @@ const Login = () => {
               style={styles.icon}
             />
             <TextInput
-              style={[styles.input, emailError ? styles.inputError : null]}
+              style={[styles.input, formState.emailError ? styles.inputError : null]}
               placeholder="Digite seu e-mail"
               placeholderTextColor="#999"
-              value={email}
+              value={formState.email}
               onChangeText={validateEmail}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
             />
           </View>
-          {emailError ? (
-            <Text style={styles.errorText}>{emailError}</Text>
+          {formState.emailError ? (
+            <Text style={styles.errorText}>{formState.emailError}</Text>
           ) : null}
         </View>
 
@@ -162,25 +183,25 @@ const Login = () => {
               style={styles.icon}
             />
             <TextInput
-              style={[styles.input, passwordError ? styles.inputError : null]}
+              style={[styles.input, formState.passwordError ? styles.inputError : null]}
               placeholder="Digite sua senha"
               placeholderTextColor="#999"
               secureTextEntry
-              value={password}
+              value={formState.password}
               onChangeText={validatePassword}
             />
           </View>
-          {passwordError ? (
-            <Text style={styles.errorText}>{passwordError}</Text>
+          {formState.passwordError ? (
+            <Text style={styles.errorText}>{formState.passwordError}</Text>
           ) : null}
         </View>
 
-        <TouchableOpacity 
-          style={styles.buttonLogin} 
-          onPress={handleEntrar}
-          disabled={isLoading}
+        <TouchableOpacity
+          style={styles.buttonLogin}
+          onPress={handleLogin}
+          disabled={formState.isLoading}
         >
-          {isLoading ? (
+          {formState.isLoading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
             <Text style={styles.buttonText}>ENTRAR</Text>
@@ -189,8 +210,8 @@ const Login = () => {
 
         <TouchableOpacity
           style={styles.buttonRegister}
-          onPress={handleRegister}
-          disabled={isLoading}
+          onPress={navigateToRegister}
+          disabled={formState.isLoading}
         >
           <Text style={styles.buttonTextRegister}>CADASTRAR</Text>
         </TouchableOpacity>

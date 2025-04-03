@@ -12,9 +12,9 @@ import { useCart } from "../../context/CartContext";
 import { FontAwesome } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as FileSystem from "expo-file-system";
 import styles from "./styles/cart.styles";
 import { request } from "../../services/api";
-import chat from "../chat";
 
 interface CartItem {
   id: string;
@@ -39,35 +39,25 @@ const Cart = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const token = await AsyncStorage.getItem("authToken");
-        const userId = await AsyncStorage.getItem("userId");
-
-        console.log("🚀 Token:", token);
-        console.log("🚀 UserID:", userId);
-
-        if (!token) {
-          throw new Error("Token não encontrado");
+        const [name, token] = await AsyncStorage.multiGet(["userName", "authToken"]);
+        
+        if (name[1]) {
+          setUserName(name[1]);
+          return;
         }
+
+        if (!token[1]) throw new Error("Token não encontrado");
 
         const response = await request("/api/me", "GET", null, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: `Bearer ${token[1]}` },
         });
 
-        console.log("🚀 Resposta completa:", response);
-
-        if (!response?.user) {
-          throw new Error("Dados do usuário não encontrados");
-        }
-
-        setUserName(response.user.nome ||  "Cliente");
-        console.log("🚀 Nome do usuário:", response.user.nome);
+        const userName = response.user?.nome || "Cliente";
+        setUserName(userName);
+        await AsyncStorage.setItem("userName", userName);
       } catch (error) {
-        console.error("Erro detalhado:", {
-          message: error.message,
-          stack: error.stack,
-          response: error.response,
-        });
-        Alert.alert("Erro", "Não foi possível carregar os dados do usuário");
+        console.error("Erro ao buscar usuário:", error);
+        setUserName("Cliente");
       }
     };
 
@@ -111,47 +101,77 @@ const Cart = () => {
     );
   };
 
+  const salvarCompraEmArquivoUnico = async (pedidoData: any) => {
+    try {
+      // 1. Definir caminho do arquivo único
+      const caminhoArquivo = `${FileSystem.documentDirectory}compras_geral.txt`;
+      console.log("📂 Caminho do arquivo:", FileSystem.documentDirectory);
+      
+      // 2. Criar linha da compra (formato JSON compacto)
+      const linhaCompra = JSON.stringify({
+        timestamp: new Date().toISOString(),
+        pedidoId: pedidoData._id,
+        usuarioId: pedidoData.usuario._id,
+        nome: pedidoData.nomeUsuario,
+        produtos: pedidoData.produtos.map((p: any) => ({
+          id: p.id,
+          nome: p.nome,
+          quantidade: p.quantidade
+        })),
+        total: pedidoData.valorTotal,
+        pagamento: pedidoData.formaPagamento
+      });
+
+      // 3. Adicionar ao arquivo (com quebra de linha)
+      await FileSystem.writeAsStringAsync(
+        caminhoArquivo,
+        linhaCompra + "\n", // \n para nova linha
+        {
+          encoding: FileSystem.EncodingType.UTF8,
+          append: true // Mantém o conteúdo existente
+        }
+      );
+      console.log("📂 Caminho do arquivo:", FileSystem.documentDirectory);
+      console.log("Compra adicionada ao arquivo:", caminhoArquivo);
+      return caminhoArquivo;
+    } catch (error) {
+      console.error("Erro ao salvar compra:", error);
+      throw error;
+    }
+  };
+
   const finalizarPedido = async () => {
     if (cartItems.length === 0) {
-      Alert.alert(
-        "Carrinho vazio",
-        "Adicione itens ao carrinho antes de finalizar o pedido."
-      );
+      Alert.alert("Carrinho vazio", "Adicione itens ao carrinho antes de finalizar.");
       return;
     }
 
-    if (selectedPaymentMethod === "Cartão de Crédito") {
-      if (!cardNumber || !securityCode || !expiryDate) {
-        Alert.alert(
-          "Erro",
-          "Por favor, preencha todos os campos do cartão de crédito."
-        );
-        return;
-      }
+    if (selectedPaymentMethod === "Cartão de Crédito" && 
+        (!cardNumber || !securityCode || !expiryDate)) {
+      Alert.alert("Erro", "Preencha todos os campos do cartão.");
+      return;
     }
 
     setIsSubmitting(true);
 
     try {
-      // 1. Obter credenciais do usuário
-      const [token, userId] = await Promise.all([
-        AsyncStorage.getItem("authToken"),
-        AsyncStorage.getItem("userId"),
+      // 1. Obter dados do usuário
+      const [token, userId, userName] = await AsyncStorage.multiGet([
+        "authToken",
+        "userId",
+        "userName"
       ]);
 
-      console.log("Token:", token?.substring(0, 10) + "..."); // Log parcial do token por segurança
-      console.log("UserID:", userId);
-
-      if (!token || !userId) {
-        throw new Error("Usuário não autenticado. Faça login novamente.");
+      if (!token[1] || !userId[1]) {
+        throw new Error("Usuário não autenticado.");
       }
 
       // 2. Preparar dados do pedido
       const pedidoData = {
-        produtos: cartItems.map((item) => item.id), // Apenas os IDs dos produtos
+        produtos: cartItems.map((item) => item.id),
         formaPagamento: selectedPaymentMethod,
         valorTotal: getTotal(),
-        usuario: userId,
+        usuario: userId[1],
         ...(selectedPaymentMethod === "Cartão de Crédito" && {
           cartao: {
             numero: cardNumber,
@@ -161,58 +181,66 @@ const Cart = () => {
         }),
       };
 
-      console.log("Dados do pedido:", JSON.stringify(pedidoData, null, 2));
-
-      // 3. Enviar pedido para o backend
+      // 3. Enviar para a API
       const response = await request("/api/pedidos", "POST", pedidoData, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${token[1]}` }
       });
 
-      if (!response || response.error) {
-        throw new Error(response?.error || "Erro ao processar pedido");
+      if (!response.success) {
+        throw new Error(response.message || "Erro ao processar pedido");
       }
 
-      // 4. Processar resposta
-      const numeroPedido =
-        response._id || Math.floor(1000 + Math.random() * 9000);
+      // 4. Salvar no arquivo único
+      const compraData = {
+        _id: response.pedido._id,
+        usuario: {
+          _id: userId[1],
+          cpf: response.pedido.usuario?.cpf,
+          telefone: response.pedido.usuario?.telefone
+        },
+        nomeUsuario: userName[1] || "Cliente",
+        formaPagamento: selectedPaymentMethod,
+        valorTotal: getTotal(),
+        produtos: cartItems.map(item => ({
+          id: item.id,
+          nome: item.nome,
+          quantidade: item.quantidade,
+          preco: item.preco
+        }))
+      };
 
+      await salvarCompraEmArquivoUnico(compraData);
+
+      // 5. Feedback para o usuário
       Alert.alert(
-        "Pedido Finalizado!",
-        `Seu pedido foi confirmado com o número: #${numeroPedido}`,
+        "Sucesso!",
+        `Pedido #${response.pedido._id} realizado com sucesso.`,
         [
           {
             text: "OK",
             onPress: () => {
               clearCart();
-              router.push("/pedido"); // Navegar para a tela de pedidos
-            },
-          },
+              router.push("/pedido");
+            }
+          }
         ]
       );
 
-      // 5. Limpar dados sensíveis do cartão
+      // Limpar dados do cartão se necessário
       if (selectedPaymentMethod === "Cartão de Crédito") {
         setCardNumber("");
         setSecurityCode("");
         setExpiryDate("");
       }
-    } catch (error) {
-      console.error("Erro detalhado:", {
-        message: error.message,
-        stack: error.stack,
-        credentials: {
-          token: await AsyncStorage.getItem("authToken"),
-          userId: await AsyncStorage.getItem("userId"),
-        },
-      });
 
+    } catch (error) {
+      console.error("Erro no pedido:", {
+        error,
+        time: new Date().toISOString()
+      });
       Alert.alert(
         "Erro",
-        error.message ||
-          "Ocorreu um erro ao finalizar o pedido. Por favor, tente novamente."
+        error.message || "Erro ao finalizar pedido. Tente novamente."
       );
     } finally {
       setIsSubmitting(false);
@@ -220,13 +248,9 @@ const Cart = () => {
   };
 
   const handleRemoveItem = (id: string) => {
-    Alert.alert("Remover item", "Tem certeza que deseja remover este item?", [
+    Alert.alert("Remover item", "Deseja remover este item?", [
       { text: "Cancelar", style: "cancel" },
-      {
-        text: "Remover",
-        onPress: () => removeFromCart(id),
-        style: "destructive",
-      },
+      { text: "Remover", onPress: () => removeFromCart(id), style: "destructive" }
     ]);
   };
 
