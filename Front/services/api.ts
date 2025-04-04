@@ -61,7 +61,7 @@ const request = async (
     return data;
   } catch (error) {
     console.error("Erro completo:", {
-      message: error.message,
+      message: error instanceof Error ? error.message : 'Erro desconhecido',
       endpoint: normalizedEndpoint,
       method,
       time: new Date().toISOString()
@@ -70,11 +70,11 @@ const request = async (
     // Mensagens mais amigáveis para o usuário
     let userMessage = "Erro de conexão com o servidor";
 
-    if (error.message.includes('Endpoint não encontrado')) {
+    if (error instanceof Error && error.message.includes('Endpoint não encontrado')) {
       userMessage = "Rota não encontrada no servidor";
-    } else if (error.message.includes('JSON Parse error')) {
+    } else if (error instanceof Error && error.message.includes('JSON Parse error')) {
       userMessage = "Resposta inválida do servidor";
-    } else if (error.message.includes("Email ou senha inválidos")) {
+    } else if (error instanceof Error && error.message.includes("Email ou senha inválidos")) {
       userMessage = "Email ou senha inválidos";
     }
 
@@ -88,7 +88,7 @@ const request = async (
 interface UserData {
   id: string;
   email: string;
-  nome?: string; // Opcional se nem sempre vier
+  nome?: string;
 }
 
 interface LoginResponse {
@@ -99,6 +99,7 @@ interface LoginResponse {
 const login = async (email: string, senha: string): Promise<LoginResponse> => {
   return await request('/login', 'POST', { email, senha });
 };
+
 
 /**
  * Função para registrar o usuário

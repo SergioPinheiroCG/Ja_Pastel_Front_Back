@@ -7,7 +7,6 @@ export default StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#fff',
-    padding: 16,
   },
   
   loadingContainer: {
@@ -17,16 +16,24 @@ export default StyleSheet.create({
     backgroundColor: '#fff',
   },
 
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    backgroundColor: '#fff',
+  },
+
   emptyContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
-    backgroundColor: '#fff',
   },
 
   listaContainer: {
-    paddingBottom: 20,
+    padding: 16,
+    paddingBottom: 80, // Espaço extra para a barra de menu
   },
 
   // COMPONENTES DE ERRO E CARREGAMENTO
@@ -34,17 +41,14 @@ export default StyleSheet.create({
     color: '#FF0000',
     fontSize: 18,
     textAlign: 'center',
-    marginTop: 20,
-    marginHorizontal: 20,
+    marginBottom: 20,
   },
 
   refreshButton: {
-    marginTop: 20,
     paddingVertical: 12,
     paddingHorizontal: 24,
     backgroundColor: '#FF0000',
     borderRadius: 25,
-    alignSelf: 'center',
   },
 
   refreshText: {

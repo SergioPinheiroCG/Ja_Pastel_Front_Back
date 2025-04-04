@@ -5,6 +5,10 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  contentContainer: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -21,24 +25,26 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#4CAF50',
   },
-  contentContainer: {
+  emptyContainer: {
     flex: 1,
-    paddingHorizontal: 20,
-  },
-  listContent: {
-    paddingBottom: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: 100, // Espaço extra para a barra de menu
   },
   emptyText: {
     fontSize: 18,
     textAlign: 'center',
-    marginTop: 40,
     color: '#666',
+  },
+  listContent: {
+    paddingBottom: 120, // Espaço extra para o botão e barra de menu
   },
   itemContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 15,
+    paddingHorizontal: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -69,6 +75,10 @@ const styles = StyleSheet.create({
   },
   trashIcon: {
     marginLeft: 15,
+  },
+  footerContainer: {
+    paddingHorizontal: 20,
+    paddingBottom: 90, // Espaço para o botão e barra de menu
   },
   totalText: {
     fontSize: 20,
@@ -129,24 +139,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#f9f9f9',
   },
   finalizarButton: {
-  position: 'absolute',
-  width: '90%',
-  alignSelf: 'center',
-  // Antes estava 20, agora sobe acima do footer
-  // bottom: 20,  
-  bottom: 70, // Antes estava 20, agora sobe acima do footer
-  left: 20,
-  right: 20,
-  backgroundColor: '#4CAF50',
-  borderRadius: 8,
-  paddingVertical: 14,
-  elevation: 5,
-  shadowColor: '#000',
-  shadowOffset: { width: 0, height: 2 },
-  shadowOpacity: 0.1,
-  shadowRadius: 4,
-}
-
+    marginTop: 20,
+    marginBottom: 30,
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    paddingVertical: 14,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
 });
 
 export default styles;

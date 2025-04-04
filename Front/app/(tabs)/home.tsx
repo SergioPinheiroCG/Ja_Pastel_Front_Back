@@ -1,6 +1,6 @@
 // Home.tsx
 import React from 'react';
-import { View, Text, Image, FlatList } from 'react-native';
+import { View, Text, Image, FlatList, ScrollView } from 'react-native';
 import styles from './styles/home.styles';
 
 // Lista de produtos
@@ -16,8 +16,6 @@ const produtos = [
   { id: '9', imagem: 'https://i.pinimg.com/736x/ff/8c/e2/ff8ce219b70bbcf211e06c67854a8e1a.jpg' },
   { id: '10', imagem: 'https://i.pinimg.com/736x/70/07/09/7007094cf70b3d7fd411c49aa66aff26.jpg' },
   { id: '11', imagem: 'https://i.pinimg.com/736x/1f/47/8f/1f478f9342d57da88cecb708d8f15b9e.jpg' },
-
-
 ];
 
 // Postagens de clientes
@@ -35,7 +33,7 @@ interface Produto {
 
 const ProdutoItem = ({ item }: { item: Produto }) => (
   <View style={styles.itemCard}>
-    <Image source={item.imagem}style={styles.itemImage}resizeMode="cover" />
+    <Image source={{ uri: item.imagem }} style={styles.itemImage} resizeMode="cover" />
   </View>
 );
 
@@ -56,11 +54,11 @@ const DepoimentoItem = ({ item }: { item: Depoimento }) => (
 export default function Home() {
   return (
     <FlatList
-      data={produtos}
-      keyExtractor={(item) => item.id}
-      renderItem={({ item }) => <ProdutoItem item={item} />}
+      data={[]} // Lista vazia pois todo o conteúdo está no header
+      keyExtractor={() => 'main-scroll'}
+      renderItem={null}
       ListHeaderComponent={
-        <>
+        <View style={styles.scrollContent}>
           {/* BANNER */}
           <View style={styles.bannerContainer}>
             <Text style={styles.bannerText}>SEJA BEM VINDO!</Text>
@@ -77,7 +75,9 @@ export default function Home() {
                 <Image source={{ uri: item.imagem }} style={styles.carrosselImage} />
               </View>
             )}
+            contentContainerStyle={styles.carrosselContainer}
           />
+
 
           {/* DEPOIMENTOS */}
           <View style={styles.depoimentosContainer}>
@@ -87,7 +87,7 @@ export default function Home() {
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => <DepoimentoItem item={item} />}
               contentContainerStyle={styles.depoimentosList}
-              nestedScrollEnabled={true}
+              scrollEnabled={false}
             />
           </View>
 
@@ -100,10 +100,10 @@ export default function Home() {
               pastéis e refrigerantes em um ambiente acolhedor e familiar.
             </Text>
           </View>
-        </>
+        </View>
       }
-      ListFooterComponent={null}
-      contentContainerStyle={styles.container}
+      contentContainerStyle={[styles.container, { paddingBottom: 80 }]} // Padding extra para a barra de menu
+      showsVerticalScrollIndicator={true}
     />
   );
 }
