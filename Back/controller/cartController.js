@@ -139,7 +139,7 @@ exports.finalizarPedido = async (req, res) => {
       formaPagamento,
       valorTotal,
       observacoes,
-      status: 'pendente'
+      status: 'entregue'
     });
 
     await novoPedido.save();

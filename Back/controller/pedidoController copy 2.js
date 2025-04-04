@@ -18,7 +18,6 @@ async function getPrecoProduto(produtoId) {
 }
 
 const addPedido = async (req, res) => {
- 
   try {
     const { produtos, formaPagamento, valorTotal } = req.body;
     const idUser = req.user.id;

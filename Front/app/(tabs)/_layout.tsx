@@ -130,7 +130,7 @@ const Footer = () => {
     { name: "receipt-long", label: "Faça Seu Pedido", screen: "/(tabs)/pedido" },
     { name: "shopping-cart", label: "Carrinho", screen: "/(tabs)/cart" },
     { name: "chat", label: "Chat", screen: "/chat" },
-    { name: "arrow-back", label: "Voltar", action: () => router.back() },
+//    { name: "arrow-back", label: "Voltar", action: () => router.back() },
   ];
 
   return (

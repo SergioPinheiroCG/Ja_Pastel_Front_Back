@@ -5,36 +5,40 @@ const Compras = require("../model/Compras");
 
 const criarCompra = async (req, res) => {
   try {
-
-    console.log("Corpo recebido:", req.body); // Adicione para debug
-    // O body-parser já fez o parse do JSON
+    console.log('Corpo da requisição:', req.body); // Log para debug
+    
+     // Validação básica
+     if (!req.body.itens || req.body.itens.length === 0) {
+      return res.status(400).json({ 
+        success: false,
+        message: 'A compra deve conter pelo menos um item.'
+      });
+    }
+    
     const dadosCompra = req.body;
 
     if (!dadosCompra) {
-      return res.status(400).json({ 
-        success: false,
-        message: "Dados da compra são obrigatórios." 
-      });
+      return res.status(400).json({ message: "Dados da compra são obrigatórios." });
     }
 
+    // Criar nova compra no MongoDB
     const novaCompra = new Compras({
-      dados: dadosCompra,
+      dados: dadosCompra, // Armazena todo o objeto JSON
       criadoEm: new Date()
     });
 
     await novaCompra.save();
 
     res.status(201).json({
-      success: true,
       message: "Compra registrada com sucesso!",
       compra: novaCompra
     });
 
   } catch (error) {
     console.error("Erro ao salvar compra:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Erro ao processar compra"
+    res.status(500).json({ 
+      message: "Erro ao processar compra",
+      error: error.message 
     });
   }
 };

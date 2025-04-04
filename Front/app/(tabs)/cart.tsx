@@ -104,11 +104,11 @@ const Cart = () => {
     );
   };
 
-  const salvarCompraEmArquivoUnico = async (pedidoData: any) => {
+  /*const salvarCompraEmArquivoUnico = async (pedidoData: any) => {
     try {
       // 1. Definir caminho do arquivo único
       const caminhoArquivo = `${FileSystem.documentDirectory}compras_geral.txt`;
-      console.log("📂 Caminho do arquivo:", FileSystem.documentDirectory);
+      console.log("Caminho do arquivo:", FileSystem.documentDirectory);
 
       // 2. Criar linha da compra (formato JSON compacto)
       const linhaCompra = JSON.stringify({
@@ -134,16 +134,16 @@ const Cart = () => {
           append: true, // Mantém o conteúdo existente
         }
       );
-      console.log("📂 Caminho do arquivo:", FileSystem.documentDirectory);
+      console.log("Caminho do arquivo:", FileSystem.documentDirectory);
       console.log("Compra adicionada ao arquivo:", caminhoArquivo);
       return caminhoArquivo;
     } catch (error) {
       console.error("Erro ao salvar compra:", error);
       throw error;
     }
-  };
+  };*/
 
-  const finalizarPedido = async () => {
+  /*const finalizarPedido = async () => {
     if (cartItems.length === 0) {
       Alert.alert(
         "Carrinho vazio",
@@ -253,6 +253,208 @@ const Cart = () => {
       setIsSubmitting(false);
     }
   };
+
+  const finalizarPedido = async () => {
+    if (cartItems.length === 0) {
+      Alert.alert("Carrinho vazio", "Adicione itens ao carrinho antes de finalizar.");
+      return;
+    }
+  
+    setIsSubmitting(true);
+  
+    try {
+      // 1. Criar objeto JSON com os dados da compra
+      const compraJSON = {
+        data: new Date().toISOString(),
+        usuario: {
+          nome: userName,
+          // Adicione outros dados do usuário se necessário
+        },
+        itens: cartItems.map(item => ({
+          id: item.id,
+          nome: item.nome,
+          quantidade: item.quantidade,
+          precoUnitario: item.preco,
+          subtotal: item.quantidade * item.preco
+        })),
+        pagamento: {
+          metodo: selectedPaymentMethod,
+          ...(selectedPaymentMethod === "Cartão de Crédito" && {
+            cartao: {
+              ultimosDigitos: cardNumber.slice(-4), // Armazena apenas os últimos 4 dígitos
+              tipo: cardNumber.startsWith('4') ? 'Visa' : 
+                    cardNumber.startsWith('5') ? 'Mastercard' : 'Outro'
+            }
+          })
+        },
+        total: getTotal(),
+        status: "pendente"
+      };
+  
+      // 2. Enviar para o back-end
+      const response = await fetch('http://192.168.0.7:5000/compras', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(compraJSON)
+      });
+  
+      if (!response.ok) {
+        throw new Error('Erro ao enviar compra');
+      }
+  
+      // 3. Opcional: Salvar localmente como backup
+      await FileSystem.writeAsStringAsync(
+        `${FileSystem.documentDirectory}compra_${Date.now()}.json`,
+        JSON.stringify(compraJSON, null, 2)
+      );
+  
+      Alert.alert("Sucesso!", "Compra registrada com sucesso!");
+      clearCart();
+      
+    } catch (error) {
+      console.error("Erro:", error);
+      Alert.alert("Erro", "Não foi possível finalizar a compra");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };*/
+
+  const finalizarPedido = async () => {
+    if (cartItems.length === 0) {
+      Alert.alert("Carrinho vazio", "Adicione itens ao carrinho antes de finalizar.");
+      return;
+    }
+  
+    if (selectedPaymentMethod === "Cartão de Crédito" && 
+        (!cardNumber || !securityCode || !expiryDate)) {
+      Alert.alert("Erro", "Preencha todos os campos do cartão.");
+      return;
+    }
+  
+    setIsSubmitting(true);
+  
+    try {
+      const [token, userId, userName] = await AsyncStorage.multiGet([
+        "authToken", "userId", "userName"
+      ]);
+  
+      if (!token[1] || !userId[1]) {
+        throw new Error("Usuário não autenticado.");
+      }
+  
+      // 1. Primeiro enviar para pedidos (formato original)
+      const pedidoData = {
+        produtos: cartItems.map((item) => item.id),
+        formaPagamento: selectedPaymentMethod,
+        valorTotal: getTotal(),
+        usuario: userId[1],
+        ...(selectedPaymentMethod === "Cartão de Crédito" && {
+          cartao: {
+            numero: cardNumber,
+            codigoSeguranca: securityCode,
+            dataValidade: expiryDate,
+          },
+        }),
+      };
+  
+      const responsePedidos = await request("/api/pedidos", "POST", pedidoData, {
+        headers: { Authorization: `Bearer ${token[1]}` },
+      });
+  
+      if (!responsePedidos.success) {
+        throw new Error(responsePedidos.message || "Erro ao processar pedido");
+      }
+  
+      // 2. Preparar dados para compras (formato JSON completo)
+      const compraData = {
+        data: new Date().toISOString(),
+        pedidoId: responsePedidos.pedido._id,
+        usuario: {
+          id: userId[1],
+          nome: userName[1] || "Cliente",
+        },
+        itens: cartItems.map(item => ({
+          id: item.id,
+          nome: item.nome,
+          quantidade: item.quantidade,
+          precoUnitario: item.preco,
+          subtotal: item.quantidade * item.preco
+        })),
+        pagamento: {
+          metodo: selectedPaymentMethod,
+          ...(selectedPaymentMethod === "Cartão de Crédito" && {
+            cartao: {
+              ultimosDigitos: cardNumber.slice(-4),
+              tipo: cardNumber.startsWith('4') ? 'Visa' : 
+                    cardNumber.startsWith('5') ? 'Mastercard' : 'Outro'
+            }
+          })
+        },
+        total: getTotal(),
+        status: "entregue"
+      };
+  
+      // 3. Enviar para compras (sem stringificar novamente)
+      const responseCompras = await request("/api/compras", "POST", compraData, {
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token[1]}`
+        }
+      });
+  
+      if (!responseCompras.success) {
+        console.warn("Aviso: Compra não foi registrada na coleção Compras:", 
+          responseCompras.message);
+      }
+  /*
+      // 4. Salvar backup local
+      await salvarCompraEmArquivoUnico({
+        _id: responsePedidos.pedido._id,
+        ...compraData
+      });*/
+  
+      Alert.alert(
+        "Sucesso!", 
+        `Pedido #${responsePedidos.pedido._id} registrado com sucesso!`,
+        [{
+          text: "OK",
+          onPress: () => {
+            clearCart();
+            router.push("/pedido");
+          }
+        }]
+      );
+  
+      if (selectedPaymentMethod === "Cartão de Crédito") {
+        setCardNumber("");
+        setSecurityCode("");
+        setExpiryDate("");
+      }
+  
+    } catch (error: any) { // Adicione tipagem 'any' temporariamente para debug
+      console.error("Erro completo:", {
+        message: error.message,
+        response: error.response?.data, // Adicione esta linha
+        stack: error.stack,
+        time: new Date().toISOString(),
+      });
+    
+      let errorMessage = "Erro ao finalizar pedido. Tente novamente.";
+      
+      if (error.response) {
+        // Se a API retornou um erro estruturado
+        errorMessage = error.response.data?.message || errorMessage;
+      } else if (error.request) {
+        // Se a requisição foi feita mas não houve resposta
+        errorMessage = "Sem resposta do servidor. Verifique sua conexão.";
+      }
+    
+      Alert.alert("Erro", errorMessage);
+    }
+  };
+
 
   const handleRemoveItem = (id: string) => {
     Alert.alert("Remover item", "Deseja remover este item?", [

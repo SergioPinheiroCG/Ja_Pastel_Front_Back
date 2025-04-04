@@ -4,12 +4,12 @@ const comprasController = require("../controller/comprasController");
 
 
 // Registrar compra para processamento por IA
-router.post("/", comprasController.criarCompra);
+router.post("/compras", comprasController.criarCompra);
 // Listar todas as compras
-router.get("/", comprasController.listarCompras);
+router.get("/compras", comprasController.listarCompras);
 // Atualizar uma compra
-router.put("/:id", comprasController.atualizarCompra);
+router.put("/compras/:id", comprasController.atualizarCompra);
 // Deletar uma compra
-router.delete("/:id", comprasController.deletarCompra);
+router.delete("/compras/:id", comprasController.deletarCompra);
 
 module.exports = router;
