@@ -4,7 +4,6 @@ import React, { createContext, useContext, useState } from 'react';
 interface CartItem {
   id: string;
   nome: string;
-  descricao: string;
   preco: number;
   quantidade: number;
 }
@@ -40,7 +39,11 @@ export const CartProvider: React.FC<{children: React.ReactNode}> = ({ children }
   };
 
   const updateQuantity = (id: string, quantity: number) => {
-    if (quantity < 1) return;
+    if (quantity < 1) {
+      // Se quantidade for menor que 1, remove o item
+      removeFromCart(id);
+      return;
+    }
     
     setCartItems(prev =>
       prev.map(item => (item.id === id ? { ...item, quantidade: quantity } : item))

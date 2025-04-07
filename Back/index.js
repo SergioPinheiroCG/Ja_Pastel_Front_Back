@@ -1,5 +1,3 @@
-//back/index.js
-
 // IMPORT DE BIBLITOECAS ;
 require('dotenv').config();
 const express = require("express"); // Importando a biblioteca "Express" ;
@@ -14,7 +12,6 @@ const userRouter = require("./router/userRouter"); // Importando o router de usu
 const produtoRouter = require("./router/produtoRouter"); // Importando o router de pastel ;
 const pedidoRouter = require("./router/pedidoRouter"); // Importando o router de pedido ;
 const cartRouter = require("./router/cartRouter"); // Importando o router de cart ;
-const comprasRouter = require("./router/comprasRouter");
 
 // UTILIZAÇÃO DE BIBLIOTECAS ;
 const app = express(); // Atribuindo a variável uma instância de "Express" ;
@@ -31,7 +28,6 @@ app.use((req, res, next) => {
 });
 
 // UTILIZAÇÃO DE ARQUIVOS ;
-app.use("/api/compras", comprasRouter); // Utilizando o router de compras ;
 app.use("/api/", pedidoRouter); // Utilizando o router de pedido ;
 app.use("/api", userRouter); // Utilizando o router de usuário ;
 app.use("/api", produtoRouter); // Utilizando o router de pastel ;
@@ -40,7 +36,7 @@ app.use("/api", require("./router/chatRouter")); // Utilizando o router de chat 
 
 
 // SERVIDOR ;
-const ipAddress = "192.168.0.6"; // Atribuindo a variável o endereço IP do servidor ;
+const ipAddress = "10.5.0.173"; // Atribuindo a variável o endereço IP do servidor ;
 const port = 5000; // Atribuindo a variável a porta no qual será rodado o servidor ;
 app.listen(port, ipAddress, () => {
   // Iniciando o servidor ;

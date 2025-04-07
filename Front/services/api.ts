@@ -1,6 +1,6 @@
 //front/services/api.ts
 
-const API_URL = "http://192.168.0.6:5000";
+const API_URL = "http://10.5.0.173:5000";
 
 const request = async (
   endpoint: string,

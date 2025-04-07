@@ -1,3 +1,5 @@
+//back/controller/chatController.js
+
 const aiService = require("../services/IaService");
 
 exports.chatWithAI = async (req, res) => {

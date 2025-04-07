@@ -1,3 +1,5 @@
+//front/app/(tabs)/_layout.tsx
+
 import React from "react";
 import { Stack } from "expo-router";
 import { View, Text, TouchableOpacity, Image, Alert } from "react-native";

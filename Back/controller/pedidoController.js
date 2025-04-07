@@ -19,10 +19,10 @@ async function getPrecoProduto(produtoId) {
   }
 }
 
+// Adicionar novo pedido
 const addPedido = async (req, res) => {
- 
   try {
-    const { produtos, formaPagamento, valorTotal } = req.body;
+    const { produtos, formaPagamento, observacoes } = req.body;
     const idUser = req.user.id;
 
     // Validação dos dados de entrada
@@ -40,15 +40,17 @@ const addPedido = async (req, res) => {
       });
     }
 
-    if (!valorTotal || isNaN(valorTotal) || valorTotal <= 0) {
-      return res.status(400).json({
-        success: false,
-        error: "Valor total inválido"
-      });
-    }
+    // Verificar se todos os produtos têm quantidade válida
+    const produtosComQuantidade = produtos.map(item => ({
+      produtoId: item.produto,
+      quantidade: item.quantidade && item.quantidade > 0 ? item.quantidade : 1
+    }));
 
     // Verificar IDs dos produtos
-    const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id));
+    const produtosValidos = produtosComQuantidade.filter(item => 
+      mongoose.Types.ObjectId.isValid(item.produtoId)
+    );
+
     if (produtosValidos.length !== produtos.length) {
       return res.status(400).json({
         success: false,
@@ -56,43 +58,41 @@ const addPedido = async (req, res) => {
       });
     }
 
-    // Converter array de IDs para o formato do schema
+    // Converter para o formato do schema com quantidades
     const itensPedido = await Promise.all(
-      produtosValidos.map(async (produtoId) => {
-        const preco = await getPrecoProduto(produtoId);
+      produtosValidos.map(async (item) => {
+        const preco = await getPrecoProduto(item.produtoId);
         return {
-          produto: produtoId,
-          quantidade: 1, // Você pode ajustar isso conforme sua lógica
+          produto: item.produtoId,
+          quantidade: item.quantidade,
           precoUnitario: preco
         };
       })
     );
 
-    // Calcular valor total real para verificação
-    const totalCalculado = itensPedido.reduce(
+    // Calcular valor total baseado nas quantidades
+    const valorTotal = itensPedido.reduce(
       (total, item) => total + (item.precoUnitario * item.quantidade),
       0
     );
 
-    // Verificar discrepância maior que 10%
-    if (Math.abs(totalCalculado - valorTotal) / totalCalculado > 0.1) {
-      console.warn(`Diferença significativa no valor total. Enviado: ${valorTotal}, Calculado: ${totalCalculado}`);
-    }
-
     // Criar o pedido
-    const novoPedido = await Pedido.create({
+    const novoPedido = new Pedido({
       usuario: idUser,
       produtos: itensPedido,
       formaPagamento,
-      valorTotal: totalCalculado, // Usar o valor calculado ou o valorTotal, conforme sua regra de negócio
-      status: "entregue",
+      valorTotal,
+      observacoes: observacoes || null,
+      status: "pendente", // Status inicial como pendente
       dataPedido: new Date()
     });
+
+    await novoPedido.save();
 
     // Popular os dados do produto para a resposta
     const pedidoCompleto = await Pedido.findById(novoPedido._id)
       .populate("produtos.produto")
-      .populate("usuario", "-senha"); // Exclui a senha do usuário
+      .populate("usuario", "-senha");
 
     res.status(201).json({
       success: true,
@@ -116,7 +116,7 @@ const addPedido = async (req, res) => {
   }
 };
 
-// Outras funções do controller (mantidas do seu código original)
+// Obter pedidos do usuário
 const getPedidos = async (req, res) => {
   try {
     const idUser = req.user.id;
@@ -138,6 +138,7 @@ const getPedidos = async (req, res) => {
   }
 };
 
+// Deletar pedido
 const deletePedido = async (req, res) => {
   try {
     const { id } = req.params;
@@ -175,10 +176,11 @@ const deletePedido = async (req, res) => {
   }
 };
 
+// Atualizar pedido
 const putPedido = async (req, res) => {
   try {
     const { id } = req.params;
-    const { produtos, status } = req.body;
+    const { produtos, status, observacoes } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       return res.status(400).json({
@@ -193,9 +195,20 @@ const putPedido = async (req, res) => {
       updateData.status = status;
     }
 
+    if (observacoes !== undefined) {
+      updateData.observacoes = observacoes;
+    }
+
     // Se produtos foram fornecidos
     if (produtos && Array.isArray(produtos)) {
-      const produtosValidos = produtos.filter(id => mongoose.Types.ObjectId.isValid(id));
+      const produtosComQuantidade = produtos.map(item => ({
+        produtoId: item.produto,
+        quantidade: item.quantidade && item.quantidade > 0 ? item.quantidade : 1
+      }));
+
+      const produtosValidos = produtosComQuantidade.filter(item => 
+        mongoose.Types.ObjectId.isValid(item.produtoId)
+      );
       
       if (produtosValidos.length !== produtos.length) {
         return res.status(400).json({
@@ -205,11 +218,11 @@ const putPedido = async (req, res) => {
       }
 
       const itensPedido = await Promise.all(
-        produtosValidos.map(async (produtoId) => {
-          const preco = await getPrecoProduto(produtoId);
+        produtosValidos.map(async (item) => {
+          const preco = await getPrecoProduto(item.produtoId);
           return {
-            produto: produtoId,
-            quantidade: 1,
+            produto: item.produtoId,
+            quantidade: item.quantidade,
             precoUnitario: preco
           };
         })
@@ -254,22 +267,6 @@ const putPedido = async (req, res) => {
     });
   }
 };
-
-const fs = require('fs');
-const path = require('path');
-
-// Caminho onde será salvo (ajuste conforme necessário)
-const pedidosPath = path.join(__dirname, 'pedidos.txt');
-
-// Função para salvar
-const savePedidoToFile = (pedido) => {
-  const data = `${new Date().toISOString()} - ${JSON.stringify(pedido)}\n`;
-  fs.appendFile(pedidosPath, data, (err) => {
-    if (err) console.error('Erro ao salvar pedido:', err);
-    else console.log('Pedido salvo em', pedidosPath);
-  });
-};
-
 
 module.exports = {
   getPedidos,

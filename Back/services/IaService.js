@@ -19,13 +19,13 @@ const aiService = {
       const user = await User.findById(userId);
       const userName = user?.nome || "Cliente";
 
-      // Buscar pedidos do usuário
+      // Buscar pedidos do usuário com produtos populados
       const pedidos = await Pedido.find({ usuario: userId })
         .sort({ dataPedido: -1 })
         .limit(3)
         .populate('produtos.produto');
 
-      // Montar contexto
+      // Montar contexto com quantidades corretas
       let context = `Informações do cliente: ${userName}\n\n`;
 
       if (pedidos.length > 0) {
@@ -34,10 +34,14 @@ const aiService = {
           context += `Pedido #${pedido._id.toString().substring(0, 6)}:\n`;
           context += `- Data: ${pedido.dataPedido.toLocaleDateString()}\n`;
           context += `- Status: ${pedido.status}\n`;
-          context += `- Valor: R$${pedido.valorTotal.toFixed(2)}\n`;
-          context += `- Itens: ${pedido.produtos.map(p => 
-            `${p.produto.nome} (${p.quantidade}x)`
-          ).join(', ')}\n\n`;
+          context += `- Valor Total: R$${pedido.valorTotal.toFixed(2)}\n`;
+          context += `- Itens:\n`;
+          
+          pedido.produtos.forEach(produto => {
+            context += `  • ${produto.produto.nome} (${produto.quantidade}x) - R$${(produto.precoUnitario * produto.quantidade).toFixed(2)}\n`;
+          });
+          
+          context += `\n`;
         });
       } else {
         context += "Nenhum pedido encontrado no histórico.\n";
@@ -55,10 +59,10 @@ const aiService = {
         Pergunta: "${pergunta}"
 
         Regras importantes:
-        1. Se não souber a resposta, diga: "Não encontrei essa informação em seus pedidos recentes."
-        2. Para valores, sempre formate como R$XX.XX
-        3. Mantenha respostas curtas e objetivas
-        4. Mostre as compras como uma lista, com o nome do produto e a quantidade, por exemplo: "Produto A (2x)" colocando cada porduto em uma linha separada.
+        1. Para valores, sempre formate como R$XX.XX
+        2. Mostre as quantidades exatas de cada item comprado
+        3. Para pedidos, mostre o valor total e detalhe cada item com sua quantidade
+        4. Se não souber a resposta, diga: "Não encontrei essa informação em seus pedidos recentes."
       `;
 
       const result = await model.generateContent(prompt);
