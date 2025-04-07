@@ -1,4 +1,4 @@
-// controller/cartController.js
+//back/controller/cartController.js
 const CartItem = require('../model/CartItem');
 const Produto = require('../model/Produto');
 const Pedido = require('../model/Pedido');

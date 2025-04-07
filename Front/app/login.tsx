@@ -1,3 +1,5 @@
+//front/app/login.tsx
+
 import React, { useState } from "react";
 import {
   Text,
@@ -124,13 +126,16 @@ const Login = () => {
 
       const errorMessage = typeof error === "string" 
         ? error 
-        : error.message || "Falha ao fazer login. Verifique suas credenciais.";
+        : error instanceof Error
+        ? error.message
+        : "Falha ao fazer login. Verifique suas credenciais.";
       
       Alert.alert("Erro", errorMessage);
     } finally {
       updateFormState({ isLoading: false });
     }
   };
+
 
   const navigateToRegister = () => {
     router.push("/register");

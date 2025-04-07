@@ -1,3 +1,5 @@
+//front/src/components/__tests__/ThemedText-test.tsx
+
 import * as React from 'react';
 import renderer from 'react-test-renderer';
 

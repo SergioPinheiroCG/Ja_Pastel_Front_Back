@@ -1,3 +1,5 @@
+//front/components/HelloWave.tsx
+
 import { useEffect } from 'react';
 import { StyleSheet } from 'react-native';
 import Animated, {

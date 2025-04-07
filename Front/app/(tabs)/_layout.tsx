@@ -1,3 +1,5 @@
+//front/src/app/%28tabs%29/_layout.tsx
+
 import React, { useState, useCallback } from "react";
 import { Stack } from "expo-router";
 import { View, Text, TouchableOpacity, Image, Alert } from "react-native";
@@ -83,26 +85,27 @@ const MenuDropdown = ({ onCloseMenu }: { onCloseMenu: () => void }) => {
   const router = useRouter();
 
   const handleNavigation = async (route: string) => {
-    const routes: Record<string, string> = {
-      Sair: "/login", // Agora "Sair" redireciona para login após logout
-      "Meus Pedidos": "/(tabs)/pedido",
-      "I.A. Dúvidas": "/(tabs)/pedido",
-    };
-
     try {
       if (route === "Sair") {
-        // Remove token e dados do usuário
-        await AsyncStorage.multiRemove(["@auth_token", "@user_data"]);
-        router.replace(routes[route]); // Redireciona para login
-        Alert.alert("Até logo!", "Você saiu da sua conta com sucesso.");
-      } else if (routes[route]) {
-        router.push(routes[route]);
+        // Limpar dados de autenticação
+        await AsyncStorage.multiRemove(['authToken', 'userId', 'userName', 'userEmail']);
+        router.replace('/login');
+      } else if (route === "I.A. Dúvidas") {
+        // Verificar se o usuário está autenticado
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          Alert.alert('Atenção', 'Você precisa estar logado para acessar o chat');
+          router.push('/login');
+        } else {
+          router.push('/chat');
+        }
+      } else if (route === "Meus Pedidos") {
+        router.push('/(tabs)/pedido');
       }
     } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-      Alert.alert("Erro", "Não foi possível sair. Tente novamente.");
+      console.error('Erro na navegação:', error);
     } finally {
-      onCloseMenu(); // Fecha o menu
+      onCloseMenu();
     }
   };
 
@@ -113,7 +116,6 @@ const MenuDropdown = ({ onCloseMenu }: { onCloseMenu: () => void }) => {
           key={item}
           onPress={() => handleNavigation(item)}
           style={styles.menuItemContainer}
-          accessibilityLabel={item}
         >
           <Text style={styles.menuItem}>{item}</Text>
         </TouchableOpacity>
@@ -125,20 +127,25 @@ const MenuDropdown = ({ onCloseMenu }: { onCloseMenu: () => void }) => {
 const Footer = () => {
   const router = useRouter();
 
-  const footerItems = [
-    { name: "home", label: "Home", screen: "/(tabs)/home" },
-    { name: "receipt-long", label: "Faça Seu Pedido", screen: "/(tabs)/pedido" },
-    { name: "shopping-cart", label: "Carrinho", screen: "/(tabs)/cart" },
-    { name: "chat", label: "Chat", screen: "/chat" },
-//    { name: "arrow-back", label: "Voltar", action: () => router.back() },
-  ];
+const footerItems: Array<{
+  name: string;
+  label: string;
+  screen?: "/(tabs)/home" | "/(tabs)/pedido" | "/(tabs)/cart" | "/chat" | "/login";
+  action?: () => void;
+}> = [
+  { name: "home", label: "Home", screen: "/(tabs)/home" },
+  { name: "receipt-long", label: "Faça Seu Pedido", screen: "/(tabs)/pedido" },
+  { name: "shopping-cart", label: "Carrinho", screen: "/(tabs)/cart" },
+  { name: "chat", label: "Chat", screen: "/chat" },
+  { name: "arrow-back", label: "Voltar", action: () => router.back() },
+];
 
   return (
     <View style={styles.footer}>
       {footerItems.map((item, index) => (
         <TouchableOpacity
           key={index}
-          onPress={item.action || (() => router.push(item.screen))}
+          onPress={item.action ? item.action : () => item.screen && router.push(item.screen)}
           style={styles.menuItemContainer}
           accessibilityLabel={item.label}
         >

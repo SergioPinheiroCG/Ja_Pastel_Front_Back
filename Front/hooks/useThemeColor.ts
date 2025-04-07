@@ -1,4 +1,4 @@
-
+//front/hooks/useThemeColor.ts
 
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';

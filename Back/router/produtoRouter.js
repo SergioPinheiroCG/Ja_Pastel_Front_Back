@@ -1,3 +1,5 @@
+//back/router/produtoRouter.js
+
 const express = require("express"); // Importando a biblioteca "Express" ; 
 const router = express.Router(); // Atribuindo a variável uma instância de "Express Router" ; 
 const produtoController = require("../controller/produtoController"); // Importando o controller de produto; 

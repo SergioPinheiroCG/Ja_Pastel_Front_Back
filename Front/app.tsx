@@ -1,3 +1,5 @@
+//front/app.tsx
+
 import React from 'react';
 import { CartProvider } from './context/CartContext';  // Ajusta o caminho conforme necessário
 import Layout from './app/(tabs)/_layout'; // Certifique-se de que este arquivo está correto

@@ -1,3 +1,5 @@
+//back/model/Pedido.js
+
 const mongoose = require("mongoose");
 
 const PedidoSchema = new mongoose.Schema({

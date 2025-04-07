@@ -1,3 +1,5 @@
+//back/database/db.js
+
 let mongoose = require("mongoose"); // Importando a biblioteca "Mongoose"; 
 
 const server = "localhost:27017"; // Atribuindo a variável o Server do banco de dados ; 

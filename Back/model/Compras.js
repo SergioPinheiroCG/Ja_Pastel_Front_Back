@@ -1,3 +1,5 @@
+//back/model/Compras.js
+
 const mongoose = require('mongoose');
 
 const CompraSchema = new mongoose.Schema({

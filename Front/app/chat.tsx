@@ -1,273 +1,373 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
-  FlatList, 
-  StyleSheet, 
+  View, 
   Text, 
   TextInput, 
   TouchableOpacity, 
-  View, 
-  SafeAreaView 
+  StyleSheet, 
+  SafeAreaView, 
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  ActivityIndicator,
+  Alert
 } from "react-native";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { request } from "../services/api";
 
-class Message{
-  text: string
-  sentBy: string
-  constructor(text: string, sentBy: string ) {
-    this.text = text;
-    this.sentBy = sentBy;
-  }
-}
+type Message = {
+  id: string;
+  text: string;
+  sentBy: string;
+  timestamp: Date;
+  isError?: boolean;
+};
 
 const Chat = () => {
   const router = useRouter();
-  const [userLogged, setUserLogged] = useState('Sérgio');
-  const [chat, setChat] = useState<{messages: Message []}>({messages: []});
+  const [userLogged, setUserLogged] = useState('Você');
+  const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState('');
-  
-  const sendMessage = () => {
-    chat.messages.push ({text:message, sentBy: userLogged})
-    setChat({messages: [...chat.messages]})
-    setMessage('')
-  }
+  const [isLoading, setIsLoading] = useState(false);
+  const flatListRef = useRef<FlatList>(null);
+  const inputRef = useRef<TextInput>(null);
+
+  // Carrega dados do usuário e mensagem inicial
+  useEffect(() => {
+    const initializeChat = async () => {
+      try {
+        const name = await AsyncStorage.getItem("userName");
+        if (name) setUserLogged(name);
+
+        // Verifica autenticação
+        const token = await AsyncStorage.getItem("authToken");
+        if (!token) {
+          Alert.alert("Acesso não autorizado", "Faça login para acessar o chat");
+          router.replace("/login");
+          return;
+        }
+
+        // Mensagem inicial da IA
+        setMessages([{
+          id: '1',
+          text: "Olá! Sou o assistente virtual do Japastel. Posso te ajudar com informações sobre seus pedidos, cardápio ou outras dúvidas. Como posso ajudar?",
+          sentBy: "Atendente Virtual",
+          timestamp: new Date()
+        }]);
+      } catch (error) {
+        console.error("Erro ao inicializar chat:", error);
+      }
+    };
+
+    initializeChat();
+  }, []);
+
+  // Rola para baixo quando novas mensagens são adicionadas
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages]);
+
+  const sendMessage = async () => {
+    if (!message.trim() || isLoading) return;
+
+    try {
+      // Adiciona mensagem do usuário
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        text: message,
+        sentBy: userLogged,
+        timestamp: new Date()
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+      setMessage('');
+      setIsLoading(true);
+      inputRef.current?.blur();
+
+      // Envia para a IA
+      const token = await AsyncStorage.getItem("authToken");
+      const response = await request("/api/chat", "POST", { message }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+
+      if (!response.success) {
+        throw new Error(response.error || "Erro na resposta da IA");
+      }
+
+      // Adiciona resposta da IA
+      const aiMessage: Message = {
+        id: Date.now().toString(),
+        text: response.response || "Não entendi sua pergunta. Poderia reformular?",
+        sentBy: "Atendente Virtual",
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+    } catch (error) {
+      console.error("Erro no chat:", error);
+      
+      const errorMessage: Message = {
+        id: Date.now().toString(),
+        text: error.message || "Erro ao processar sua mensagem",
+        sentBy: "Sistema",
+        timestamp: new Date(),
+        isError: true
+      };
+
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const renderMessage = ({ item }: { item: Message }) => {
+    const isAI = item.sentBy === "Atendente Virtual";
+    const isSystem = item.sentBy === "Sistema";
+    
+    return (
+      <View style={[
+        styles.messageContainer,
+        isAI ? styles.aiMessageContainer : 
+              isSystem ? styles.systemMessageContainer : 
+              styles.userMessageContainer
+      ]}>
+        <Text style={[
+          styles.senderName,
+          isAI ? styles.aiSenderName :
+                isSystem ? styles.systemSenderName :
+                styles.userSenderName
+        ]}>
+          {item.sentBy}
+        </Text>
+        <View style={[
+          styles.messageBubble,
+          isAI ? styles.aiMessageBubble : 
+                isSystem ? styles.systemMessageBubble :
+                styles.userMessageBubble,
+          item.isError && styles.errorMessageBubble
+        ]}>
+          <Text style={
+            isAI ? styles.aiMessageText : 
+                  isSystem ? styles.systemMessageText :
+                  styles.userMessageText
+          }>
+            {item.text}
+          </Text>
+        </View>
+        <Text style={styles.timestamp}>
+          {item.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+        </Text>
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Cabeçalho com botão de voltar */}
+      {/* Cabeçalho */}
       <View style={styles.header}>
         <TouchableOpacity 
-          onPress={() => router.push("/(tabs)/home")}
+          onPress={() => router.back()}
           style={styles.backButton}
-          activeOpacity={0.7}
         >
           <MaterialIcons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Atendimento Virtual!</Text>
+        <Text style={styles.headerTitle}>Atendente Virtual</Text>
       </View>
 
-      {/* Mensagem de criptografia */}
-      <View style={styles.encryptionNotice}>
-        <Text style={styles.encryptionText}>
-          As mensagens são protegidas com a criptografia, ficando somente entre você e os participantes desta conversa.</Text>
-      </View>
-
-      {/* Lista de mensagens */}
+      {/* Área de mensagens */}
       <FlatList
-        style={styles.messagesContainer}
-        data={chat.messages}
-        renderItem={({item}) => <Balloon message={item} currentUser={userLogged} />}
-        keyExtractor={(item, index) => index.toString()}
-        ListEmptyComponent={() => (
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyMessage}>Sem mensagem no momento!</Text>
-          </View>
-        )}
-        contentContainerStyle={styles.messagesContent}
+        ref={flatListRef}
+        data={messages}
+        renderItem={renderMessage}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.messagesContainer}
         showsVerticalScrollIndicator={false}
-        
+        keyboardDismissMode="on-drag"
       />
-      
+
       {/* Área de input */}
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Digite sua mensagem"
-          placeholderTextColor="#666"
-          value={message}
-          onChangeText={(message)=>setMessage (message)}
-        />
-        <TouchableOpacity
-          onPress={() => sendMessage()}
-          style={styles.sendButton}
-          disabled={!message}
-        >
-          <Ionicons name="send" size={24} color="white" />
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={styles.inputWrapper}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 85 : 0}
+      >
+        <View style={styles.inputContainer}>
+          <TextInput
+            ref={inputRef}
+            style={styles.input}
+            placeholder="Digite sua mensagem..."
+            placeholderTextColor="#888"
+            value={message}
+            onChangeText={setMessage}
+            multiline
+            editable={!isLoading}
+            onSubmitEditing={sendMessage}
+            returnKeyType="send"
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!message.trim() || isLoading) && styles.disabledButton
+            ]}
+            onPress={sendMessage}
+            disabled={!message.trim() || isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="white" />
+            ) : (
+              <Ionicons name="send" size={20} color="white" />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const Balloon = ({ message, currentUser }: any) => {
-  const sent = currentUser === message.sentBy;
-  
-  return (
-    <View style={[
-      styles.bubbleWrapper,
-      sent ? styles.bubbleWrapperSent : styles.bubbleWrapperReceived
-    ]}>
-      <View style={[
-        styles.balloon,
-        sent ? styles.balloonSent : styles.balloonReceived
-      ]}>
-        {/* Nome do usuário (parte superior) */}
-        <Text style={sent ? styles.userNameSent : styles.userNameReceived}>
-          {message.sentBy}
-        </Text>
-        
-        {/* Mensagem (parte inferior) */}
-        <Text style={sent ? styles.balloonTextSent : styles.balloonTextReceived}>
-          {message.text}
-        </Text>
-       </View>
-    </View>
-  );
-};
-  
 const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FFF',
   },
   header: {
-    backgroundColor: '#CE0000', // Vermelho da sua paleta
-    padding: 10,
-    paddingTop: 20,
-    alignItems: 'center',
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#CE0000',
+    padding: 15,
+    paddingTop: Platform.OS === 'android' ? 35 : 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   backButton: {
-    position: 'absolute',
-    right: 16,
-    top: 10,
-    zIndex: 1,
-    padding: 8,
+    marginRight: 15,
   },
   headerTitle: {
-    color: '#FFD700', // Dourado da sua paleta
-    fontSize: 20,
+    color: 'white',
+    fontSize: 18,
     fontWeight: 'bold',
-    marginLeft: 24,
-    textAlign: 'center',
     flex: 1,
-    marginRight: 24,
-  },
-  encryptionNotice: {
-    backgroundColor: '#F0F0F0', // Cinza claro da sua paleta
-    padding: 12,
-    margin: 8,
-    borderRadius: 8,
-    alignSelf: 'center',
-    maxWidth: '90%',
-  },
-  encryptionText: {
-    color: '#CE0000', // Vermelho da sua paleta
-    fontSize: 12,
-    textAlign: 'center',
   },
   messagesContainer: {
-    flex: 1,
-    backgroundColor: '#FFF',
+    padding: 15,
+    paddingBottom: 80,
   },
-  messagesContent: {
-    paddingBottom: 20,
+  messageContainer: {
+    marginBottom: 15,
+    maxWidth: '85%',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  aiMessageContainer: {
+    alignSelf: 'flex-start',
+  },
+  userMessageContainer: {
+    alignSelf: 'flex-end',
+    alignItems: 'flex-end',
+  },
+  systemMessageContainer: {
+    alignSelf: 'center',
     alignItems: 'center',
-    marginTop: 20,
+    maxWidth: '100%',
   },
-  emptyMessage: {
-    color: '#666', // Cinza médio
+  senderName: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  aiSenderName: {
+    color: '#666',
+  },
+  userSenderName: {
+    color: '#CE0000',
+  },
+  systemSenderName: {
+    color: '#888',
+    fontStyle: 'italic',
+  },
+  messageBubble: {
+    padding: 12,
+    borderRadius: 12,
+  },
+  aiMessageBubble: {
+    backgroundColor: '#F5F5F5',
+    borderBottomLeftRadius: 0,
+  },
+  userMessageBubble: {
+    backgroundColor: '#CE0000',
+    borderBottomRightRadius: 0,
+  },
+  systemMessageBubble: {
+    backgroundColor: '#EEE',
+    borderRadius: 8,
+  },
+  errorMessageBubble: {
+    backgroundColor: '#FFEBEE',
+    borderColor: '#EF5350',
+    borderWidth: 1,
+  },
+  aiMessageText: {
+    color: '#333',
+    fontSize: 16,
+  },
+  userMessageText: {
+    color: 'white',
+    fontSize: 16,
+  },
+  systemMessageText: {
+    color: '#666',
     fontSize: 14,
+    fontStyle: 'italic',
+  },
+  timestamp: {
+    fontSize: 10,
+    color: '#999',
+    marginTop: 4,
+    alignSelf: 'flex-end',
+  },
+  inputWrapper: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#FFF',
+    borderTopWidth: 1,
+    borderTopColor: '#EEE',
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
   },
   inputContainer: {
     flexDirection: 'row',
-    padding: 8,
-    backgroundColor: '#FFF',
     alignItems: 'center',
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
   },
   input: {
     flex: 1,
     minHeight: 40,
-    maxHeight: 100,
-    paddingHorizontal: 12,
-    marginRight: 8,
-    fontSize: 16,
-    borderColor: '#F0F0F0',
-    borderWidth: 1,
+    maxHeight: 120,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    backgroundColor: '#F5F5F5',
     borderRadius: 20,
-    backgroundColor: '#FFF',
+    fontSize: 16,
+    marginRight: 10,
+    textAlignVertical: 'center',
   },
   sendButton: {
-    backgroundColor: '#CE0000', // Vermelho da sua paleta
-    height: 40,
     width: 40,
+    height: 40,
     borderRadius: 20,
+    backgroundColor: '#CE0000',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  bubbleWrapper: {
-    marginVertical: 4,
-    paddingHorizontal: 8,
-  },
-  bubbleWrapperSent: {
-    alignSelf: 'flex-end',
-  },
-  bubbleWrapperReceived: {
-    alignSelf: 'flex-start',
-  },
-
-  // Estilos para o nome do usuário
-  userNameSent: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-    alignSelf: 'flex-start',
-  },
-  userNameReceived: {
-    color: '#333',
-    fontWeight: 'bold',
-    fontSize: 14,
-    marginBottom: 4,
-    alignSelf: 'flex-start',
-  },
-  
-  // Ajuste no balão para melhor organização
-  balloon: {
-    padding: 10,
-    borderRadius: 8,
-    maxWidth: '80%',
-    flexDirection: 'column', // Mudamos para column para empilhar verticalmente
-  },
-  //Ajustes nos Balloons
-  balloonSent: {
-    backgroundColor: '#FFD700', // Dourado da sua paleta
-    borderBottomRightRadius: 0,
-  },
-  balloonReceived: {
-    backgroundColor: '#F0F0F0', // Cinza claro da sua paleta
-    borderBottomLeftRadius: 0,
-  },
-
-  // Ajuste nos textos para melhor espaçamento
-  balloonTextSent: {
-    color: '#333',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  balloonTextReceived: {
-    color: '#333',
-    fontSize: 16,
-    marginBottom: 4,
-  },
-  
-  // Ajuste no tempo para alinhar à direita
-  timeTextSent: {
-    color: '#666',
-    fontSize: 10,
-    alignSelf: 'flex-end',
-  },
-  timeTextReceived: {
-    color: '#666',
-    fontSize: 10,
-    alignSelf: 'flex-end',
+  disabledButton: {
+    opacity: 0.5,
   },
 });
 

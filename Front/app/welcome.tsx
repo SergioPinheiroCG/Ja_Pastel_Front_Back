@@ -1,3 +1,5 @@
+//front/app/welcome.tsx
+
 import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import React from "react";

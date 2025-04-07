@@ -1,4 +1,4 @@
-// Home.tsx
+//front/src/app/%28tabs%29/home.tsx
 import React from 'react';
 import { View, Text, Image, FlatList, ScrollView } from 'react-native';
 import styles from './styles/home.styles';

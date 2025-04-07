@@ -1,8 +1,10 @@
+//front/components/CartScreen.tsx
+
 import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, Alert } from 'react-native';
 import { useCart } from '../context/CartContext';
 import { useRouter } from 'expo-router';
-import styles from '../styles/cart.styles';
+import styles from '../styles/cartStyles';
 
 const CartScreen = () => {
   const { cart, removeFromCart, updateQuantity, submitOrder, total } = useCart();

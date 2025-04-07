@@ -1,4 +1,4 @@
-// This file is a fallback for using MaterialIcons on Android and web.
+//front/components/ui/IconSymbol.tsx
 
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { SymbolWeight } from 'expo-symbols';

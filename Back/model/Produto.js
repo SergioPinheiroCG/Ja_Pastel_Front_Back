@@ -1,3 +1,5 @@
+//back/model/Produto.js
+
 const mongoose = require("mongoose"); // Importando a biblioteca "Mongoose" ; 
 
 const produtoSchema = new mongoose.Schema({ // Criando a tabela no banco de dados ; 

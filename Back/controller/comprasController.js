@@ -1,3 +1,5 @@
+//back/controller/comprasController.js
+
 const Compras = require("../model/Compras");
 
 // Função para criar uma nova compra
