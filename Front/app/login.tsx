@@ -1,5 +1,3 @@
-//front/app/login.tsx
-
 import React, { useState } from "react";
 import {
   Text,
@@ -48,9 +46,9 @@ const Login = () => {
     updateFormState({
       email: text,
       emailError: !text
-        ? "E-mail é obrigatório"
+        ? "Por favor, insira seu e-mail"
         : !emailRegex.test(text)
-        ? "E-mail inválido"
+        ? "Por favor, insira um e-mail válido"
         : "",
     });
   };
@@ -58,7 +56,7 @@ const Login = () => {
   const validatePassword = (text: string) => {
     updateFormState({
       password: text,
-      passwordError: !text ? "Senha é obrigatória" : "",
+      passwordError: !text ? "Por favor, insira sua senha" : "",
     });
   };
 
@@ -69,13 +67,16 @@ const Login = () => {
       passwordError: "",
     };
 
-    if (!formState.email || !emailRegex.test(formState.email)) {
-      errors.emailError = "E-mail inválido";
+    if (!formState.email) {
+      errors.emailError = "Por favor, insira seu e-mail";
+      isValid = false;
+    } else if (!emailRegex.test(formState.email)) {
+      errors.emailError = "Por favor, insira um e-mail válido";
       isValid = false;
     }
 
     if (!formState.password) {
-      errors.passwordError = "Senha é obrigatória";
+      errors.passwordError = "Por favor, insira sua senha";
       isValid = false;
     }
 
@@ -83,9 +84,35 @@ const Login = () => {
     return isValid;
   };
 
+  const getFriendlyErrorMessage = (error: unknown): string => {
+    if (typeof error === 'string') {
+      // Trata mensagens específicas da API
+      if (error.includes('credentials')) {
+        return 'E-mail ou senha incorretos. Por favor, tente novamente.';
+      }
+      if (error.includes('connection')) {
+        return 'Não foi possível conectar ao servidor. Verifique sua conexão com a internet.';
+      }
+      return error;
+    }
+
+    if (error instanceof Error) {
+      // Trata erros específicos
+      if (error.message.includes('Network Error')) {
+        return 'Problema de conexão. Verifique sua internet e tente novamente.';
+      }
+      if (error.message.includes('404')) {
+        return 'Serviço indisponível no momento. Tente novamente mais tarde.';
+      }
+      return 'Ocorreu um erro durante o login. Por favor, tente novamente.';
+    }
+
+    return 'Ocorreu um erro inesperado. Por favor, tente novamente.';
+  };
+
   const handleLogin = async () => {
     if (!validateForm()) {
-      Alert.alert("Erro", "Por favor, corrija os campos destacados");
+      Alert.alert("Atenção", "Por favor, verifique os campos destacados");
       return;
     }
 
@@ -95,11 +122,11 @@ const Login = () => {
       const response = await login(formState.email, formState.password) as LoginResponse;
       
       if (!response?.token || !response?.user?.id) {
-        throw new Error("Dados de login incompletos");
+        throw new Error('Dados de autenticação incompletos');
       }
 
       if (!response.user.nome) {
-        throw new Error("Nome do usuário não retornado");
+        throw new Error('Informações do usuário incompletas');
       }
 
       // Armazena todos os dados do usuário
@@ -110,32 +137,15 @@ const Login = () => {
         ['userEmail', response.user.email],
       ]);
 
-      console.log('Dados do usuário armazenados:', {
-        token: response.token.substring(0, 10) + '...',
-        userId: response.user.id,
-        userName: response.user.nome,
-      });
-
       router.replace("/(tabs)/home");
     } catch (error) {
-      console.error("Erro no login:", {
-        error,
-        email: formState.email,
-        time: new Date().toISOString(),
-      });
-
-      const errorMessage = typeof error === "string" 
-        ? error 
-        : error instanceof Error
-        ? error.message
-        : "Falha ao fazer login. Verifique suas credenciais.";
-      
-      Alert.alert("Erro", errorMessage);
+      console.error("Erro no login:", error);
+      const friendlyMessage = getFriendlyErrorMessage(error);
+      Alert.alert("Atenção", friendlyMessage);
     } finally {
       updateFormState({ isLoading: false });
     }
   };
-
 
   const navigateToRegister = () => {
     router.push("/register");

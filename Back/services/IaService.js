@@ -58,6 +58,7 @@ const aiService = {
         1. Se não souber a resposta, diga: "Não encontrei essa informação em seus pedidos recentes."
         2. Para valores, sempre formate como R$XX.XX
         3. Mantenha respostas curtas e objetivas
+        4. Mostre as compras como uma lista, com o nome do produto e a quantidade, por exemplo: "Produto A (2x)" colocando cada porduto em uma linha separada.
       `;
 
       const result = await model.generateContent(prompt);
